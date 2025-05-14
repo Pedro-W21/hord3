@@ -148,14 +148,22 @@ impl<'a> MeshesWrite<'a> {
         let name = mesh.name.clone();
         match self.all_meshes.available.pop_back() {
             Some(index) => match self.reference_table.insert(name, index) {
-                Some(previous_index) => {println!("This mesh name has already been loaded"); previous_index},
+                // Problem around here somewhere with preexisting meshes
+                Some(previous_index) => {
+                    println!("This mesh name has already been loaded"); 
+                    self.all_meshes.data[previous_index] = mesh; previous_index},
                 None => {self.all_meshes.data[index] = mesh; index},
             },
             None => {
                 let index = self.all_meshes.data.len();
                 
-                match self.reference_table.insert(name, index) {
-                    Some(previous_index) => {println!("This mesh name has already been loaded"); previous_index},
+                match self.reference_table.insert(name.clone(), index) {
+                    Some(previous_index) => {
+                        println!("This mesh name has already been loaded");
+                        self.reference_table.insert(name, previous_index).unwrap();
+                        self.all_meshes.data[previous_index] = mesh;
+                        previous_index
+                    },
                     None => {self.all_meshes.data.push(mesh); index},
                 }
             }
@@ -183,6 +191,9 @@ impl<'a> MeshesWrite<'a> {
         if self.instances.len() > vec {
             for instance in &mut self.instances[vec].instances {
                 instance.visible = visibility;
+            }
+            if visibility {
+            //    panic!("{} {} {}", vec, visibility, self.instances[vec].instances.len());
             }
         }
     }

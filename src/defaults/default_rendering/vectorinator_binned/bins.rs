@@ -43,7 +43,7 @@ impl Bins {
         for y in 0..vertical {
             for x in 0..horizontal {
                 bins.push(Bin {
-                    triangle_ids:LAMPMCVec::new(100),
+                    triangle_ids:LAMPMCVec::new(2000),
                     start_x:x * real_bin_size,
                     start_y:y * real_bin_size,
                     end_x:(x + 1) * real_bin_size,
