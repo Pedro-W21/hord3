@@ -14,7 +14,9 @@ pub struct InnerMPMCVec<T:Clone + Sync + Send> {
 }
 
 impl<T:Clone + Sync + Send> LAMPMCVec<T> {
-    pub fn len(&self) -> usize {
+
+    /// Safety : Must NOT be used at the same time as `consume_all_elems`, `push` or `get_unchecked`
+    pub unsafe fn len(&self) -> usize {
         unsafe {
             self.inner.data.get().as_mut().unwrap_unchecked().len()
         }
@@ -27,7 +29,7 @@ impl<T:Clone + Sync + Send> LAMPMCVec<T> {
         }
         Self { inner: Arc::new(InnerMPMCVec {currently_consuming:AtomicBool::new(false), current_len:AtomicUsize::new(0), data:SyncUnsafeCell::new(data)}), local_actual_len: capacity}
     }
-    /// Safety : Must NOT be used at the same time as `consume_all_elems` or `get_unchecked`
+    /// Safety : Must NOT be used at the same time as `consume_all_elems`, `len` or `get_unchecked`
     pub unsafe fn push(&self, value:T) -> Result<usize, ()> {
         let index = self.inner.current_len.fetch_add(1, Ordering::Relaxed);
 
@@ -40,11 +42,11 @@ impl<T:Clone + Sync + Send> LAMPMCVec<T> {
             Err(())
         }
     }
-    /// Safety : Must NOT be used at the same time as `push` or `consume_all_elems`
+    /// Safety : Must NOT be used at the same time as `push`, `len` or `consume_all_elems`
     pub unsafe fn get_unchecked(&self, at:usize) -> &T {
         self.inner.data.get().as_ref().unwrap_unchecked().get_unchecked(at).assume_init_ref()
     }
-    /// Safety : Must NOT be used at the same time as `get_unchecked` or `push`
+    /// Safety : Must NOT be used at the same time as `get_unchecked`, `len` or `push`
     pub unsafe fn consume_all_elems<F:FnMut(&mut T)>(&self, f:&mut F) {
         if !self.inner.currently_consuming.fetch_or(true, Ordering::AcqRel) {
             let data = self.inner.data.get().as_mut().unwrap();
