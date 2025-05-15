@@ -28,11 +28,13 @@ impl<T:Clone + Sync + Send> MPSCVec<T> {
             InnerMPSCVec { currently_consuming: AtomicBool::new(false), current_vec_len:AtomicUsize::new(0), currently_pushing:AtomicUsize::new(0), current_len:AtomicUsize::new(0), data: SyncUnsafeCell::new(Vec::new()), blocker: DoBlocker::new() }
         ) }
     }
+
+    /// Safety : Must NOT be used at the same time as `push`, `drop_all_elems`, `read_all_elems` or `consume_all_elems`
     pub unsafe fn get_unchecked(&self, at:usize) -> &T {
         self.inner.data.get().as_ref().unwrap()[at].assume_init_ref()
     }
     #[inline(always)]
-    pub fn try_push_with_id(&self, val:T, id:usize) -> bool { //push again
+    unsafe fn try_push_with_id(&self, val:T, id:usize) -> bool { //push again
         unsafe {
             
             let vec_len = self.inner.current_vec_len.load(Ordering::Relaxed);
@@ -72,7 +74,8 @@ impl<T:Clone + Sync + Send> MPSCVec<T> {
         
     }
     #[inline(always)]
-    pub fn push(&self, val:T) -> usize {
+    /// Safety : Must NOT be used at the same time as `get_unchecked`, `drop_all_elems`, `read_all_elems` or `consume_all_elems`
+    pub unsafe fn push(&self, val:T) -> usize {
         unsafe {
             self.inner.currently_pushing.fetch_add(1, Ordering::Relaxed);
             let id = self.inner.current_len.fetch_add(1, Ordering::Relaxed);
@@ -85,7 +88,9 @@ impl<T:Clone + Sync + Send> MPSCVec<T> {
         }
     }
     #[inline(always)]
-    pub fn read_all_elems<F:FnMut(&T)>(&self, f:&mut F) {
+
+    /// Safety : Must NOT be used at the same time as `push`, `drop_all_elems`, `get_unchecked` or `consume_all_elems`
+    pub unsafe fn read_all_elems<F:FnMut(&T)>(&self, f:&mut F) {
         unsafe {
             let data = self.inner.data.get().as_ref().unwrap();
             let len = self.inner.current_len.load(Ordering::Relaxed);
@@ -96,7 +101,8 @@ impl<T:Clone + Sync + Send> MPSCVec<T> {
         }
     }
     #[inline(always)]
-    pub fn consume_all_elems<F:FnMut(&mut T)>(&self, f:&mut F) {
+    /// Safety : Must NOT be used at the same time as `push`, `drop_all_elems`, `read_all_elems` or `get_unchecked`
+    pub unsafe fn consume_all_elems<F:FnMut(&mut T)>(&self, f:&mut F) {
         unsafe {
             if !self.inner.currently_consuming.fetch_or(true, Ordering::AcqRel) {
                 let data = self.inner.data.get().as_mut().unwrap();
@@ -113,7 +119,8 @@ impl<T:Clone + Sync + Send> MPSCVec<T> {
         }
     }
     #[inline(always)]
-    pub fn drop_all_elems(&self) {
+    /// Safety : Must NOT be used at the same time as `push`, `drop_all_elems`, `read_all_elems` or `drop_all_elems`
+    pub unsafe fn drop_all_elems(&self) {
         unsafe {
             if !self.inner.currently_consuming.fetch_or(true, Ordering::AcqRel) {
                 let data = self.inner.data.get().as_mut().unwrap();

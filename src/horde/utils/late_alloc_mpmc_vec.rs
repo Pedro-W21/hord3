@@ -27,6 +27,7 @@ impl<T:Clone + Sync + Send> LAMPMCVec<T> {
         }
         Self { inner: Arc::new(InnerMPMCVec {currently_consuming:AtomicBool::new(false), current_len:AtomicUsize::new(0), data:SyncUnsafeCell::new(data)}), local_actual_len: capacity}
     }
+    /// Safety : Must NOT be used at the same time as `consume_all_elems` or `get_unchecked`
     pub unsafe fn push(&self, value:T) -> Result<usize, ()> {
         let index = self.inner.current_len.fetch_add(1, Ordering::Relaxed);
 
@@ -39,9 +40,11 @@ impl<T:Clone + Sync + Send> LAMPMCVec<T> {
             Err(())
         }
     }
+    /// Safety : Must NOT be used at the same time as `push` or `consume_all_elems`
     pub unsafe fn get_unchecked(&self, at:usize) -> &T {
         self.inner.data.get().as_ref().unwrap_unchecked().get_unchecked(at).assume_init_ref()
     }
+    /// Safety : Must NOT be used at the same time as `get_unchecked` or `push`
     pub unsafe fn consume_all_elems<F:FnMut(&mut T)>(&self, f:&mut F) {
         if !self.inner.currently_consuming.fetch_or(true, Ordering::AcqRel) {
             let data = self.inner.data.get().as_mut().unwrap();
@@ -58,7 +61,7 @@ impl<T:Clone + Sync + Send> LAMPMCVec<T> {
             self.inner.currently_consuming.store(false, Ordering::Relaxed);
         }
     }
-    pub unsafe fn resize_if_needed(&self) {
+    unsafe fn resize_if_needed(&self) {
         let data = self.inner.data.get().as_mut().unwrap();
         if self.inner.current_len.load(Ordering::Relaxed) >= data.len() {
             *data = Vec::with_capacity(self.inner.current_len.load(Ordering::Relaxed) * 4);
