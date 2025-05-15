@@ -450,6 +450,7 @@ impl Vec3Df {
         let long = self.norme();
         Vec3D::new(self.x / long, self.y / long, self.z / long)
     }
+    /// Safety : the resulting f32 value is not supposed to be read as-is, and is only carrying the packed data for future unpacking
     pub unsafe fn pack_f32(&self) -> f32 {
         unsafe {f32::from_le_bytes([
          std::mem::transmute::<i8, u8>(self.x as i8),
@@ -458,6 +459,7 @@ impl Vec3Df {
          0
          ])}
     }
+    /// Safety : the resulting u32 value is not supposed to be read as-is, and is only carrying the packed data for future unpacking
     pub unsafe fn pack_u32(&self) -> u32 {
         unsafe {u32::from_le_bytes([
             std::mem::transmute::<i8, u8>(self.x.to_int_unchecked()),

@@ -834,6 +834,7 @@ pub fn collux_f32_a_u8(collux: (f32, f32, f32)) -> (u8, u8, u8) {
 
 pub const POWER_SHIFT:i32 = 10 << 24;
 
+/// Safety : the floats must be in the  ] 0 ; 1 [ range, floats outside of that range will likely lead to unintended data
 pub unsafe fn zero_to_one_f32_simd_to_0_to_255_u8_simd(floats:Simd<f32, LANE_COUNT>) -> Simd<u32, LANE_COUNT> {
     // On extrait l'exposant, qui est négatif ou nul, et on rajoute 8 à l'exposant (on multiplie par 256)
     let exponents = std::mem::transmute::<Simd<i32, LANE_COUNT>, Simd<u32, LANE_COUNT>>(((((((std::mem::transmute::<Simd<f32, LANE_COUNT>, Simd<i32, LANE_COUNT>>(floats) ) << 1) + Simd::splat(POWER_SHIFT))) >> 24) & Simd::splat(0b0111_1111)));
@@ -869,7 +870,7 @@ pub unsafe fn zero_to_one_f32_simd_to_0_to_255_u8_simd(floats:Simd<f32, LANE_COU
 
      */
 }
-
+/// Safety : the floats must be in the  ] 0 ; 1 [ range, floats outside of that range will likely lead to unintended data
 pub unsafe fn zero_to_one_f32_to_0_to_255_u32(floats:f32) -> u32 {
     // On extrait l'exposant, qui est négatif ou nul, et on rajoute 8 à l'exposant (on multiplie par 256)
     let exponent = std::mem::transmute::<i32, u32>(((((((std::mem::transmute::<f32, i32>(floats) ) << 1) + POWER_SHIFT)) >> 24) & 0b0111_1111));
@@ -880,7 +881,7 @@ pub unsafe fn zero_to_one_f32_to_0_to_255_u32(floats:f32) -> u32 {
     the_eight_bits >> 24
 
 }
-
+/// Safety : the floats must be in the  ] 0 ; 1 [ range, floats outside of that range will likely lead to unintended data
 pub unsafe fn faster_collux_f32_to_u8_simd(collux: (Simd<f32, LANE_COUNT>, Simd<f32, LANE_COUNT>, Simd<f32, LANE_COUNT>)) -> (Simd<u32, LANE_COUNT>, Simd<u32, LANE_COUNT>, Simd<u32, LANE_COUNT>) {
     (
         zero_to_one_f32_simd_to_0_to_255_u8_simd(collux.0),
@@ -912,7 +913,7 @@ pub fn mul_u32_color_and_divide(color:Simd<u32, LANE_COUNT>, other_color:Simd<u3
 pub fn simd_u32_rgb_to_argb(col: (Simd<u32, LANE_COUNT>, Simd<u32, LANE_COUNT>, Simd<u32, LANE_COUNT>)) -> Simd<u32, LANE_COUNT> {
     (col.0 << 16) + (col.1 << 8) + (col.2)
 }
-
+/// Safety : the floats must be in the  ] 0 ; 1 [ range, floats outside of that range will likely lead to unintended data
 pub unsafe fn simd_f32_to_u32_color(col: (Simd<f32, LANE_COUNT>, Simd<f32, LANE_COUNT>, Simd<f32, LANE_COUNT>)) -> Simd<u32, LANE_COUNT> {
     let colors = faster_collux_f32_to_u8_simd(col);
     (colors.0 << 16) + (colors.1 << 8) + (colors.2)
