@@ -125,7 +125,7 @@ impl<'a, SD:ShaderData> VectorinatorRead<'a, SD> {
         }, &mut |bin| {
             let mut new_internal_data = InternalRasterisationData::from_vectorinator_read(self, viewport_data.clone());
             new_internal_data.copy_from_bin(bin);
-            // unsafe {bin.image_data.get().as_mut().unwrap_unchecked().clear_bufs(self.bins.get_clear());};
+            unsafe {bin.image_data.get().as_mut().unwrap_unchecked().clear_bufs(self.bins.get_clear());};
         });
         self.shader_step_sync.wait_here(number_of_threads);
         let mut counter = self.shader_counter.clone();
