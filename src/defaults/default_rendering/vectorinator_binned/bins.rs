@@ -1,4 +1,4 @@
-use std::simd::{num::SimdFloat, Simd};
+use std::{cell::SyncUnsafeCell, simd::{num::SimdFloat, Simd}};
 
 use crate::horde::{frontend::HordeWindowDimensions, utils::{late_alloc_mpmc_vec::LAMPMCVec, parallel_counter::ParallelCounter}};
 
@@ -23,6 +23,7 @@ impl PreCalcdData {
 pub struct Bins {
     triangles:LAMPMCVec<(SingleFullTriangle, PreCalcdData)>,
     bins:Vec<Bin>,
+    clear_buf:Vec<u32>,
     bins_counter:ParallelCounter,
     real_bin_size:usize,
     inv_real_bin_size_f:f32,
@@ -43,6 +44,7 @@ impl Bins {
         for y in 0..vertical {
             for x in 0..horizontal {
                 bins.push(Bin {
+                    image_data:SyncUnsafeCell::new(InternalBinImageData::from_bin_size(real_bin_size)),
                     triangle_ids:LAMPMCVec::new(2000),
                     start_x:x * real_bin_size,
                     start_y:y * real_bin_size,
@@ -50,6 +52,8 @@ impl Bins {
                     end_y:(y + 1) * real_bin_size,
                     start_x_i:(x * real_bin_size) as i32,
                     start_y_i:(y * real_bin_size) as i32,
+                    start_x_f:(x * real_bin_size) as f32,
+                    start_y_f:(y * real_bin_size) as f32,
                     end_x_f:((x + 1) * real_bin_size) as f32,
                     end_y_f:((y + 1) * real_bin_size) as f32,
                     end_x_i:((x + 1) * real_bin_size) as i32,
@@ -58,13 +62,16 @@ impl Bins {
                 });
             }
         }
-        Bins {inv_real_bin_size_f:1.0/(real_bin_size as f32), triangles: LAMPMCVec::new(1024), bins, bins_counter:ParallelCounter::new(horizontal * vertical, 1), real_bin_size, dims:dimensions, horizontal_bins:horizontal, bin_size }
+        Bins {clear_buf:vec![0 ; real_bin_size * real_bin_size],inv_real_bin_size_f:1.0/(real_bin_size as f32), triangles: LAMPMCVec::new(1024), bins, bins_counter:ParallelCounter::new(horizontal * vertical, 1), real_bin_size, dims:dimensions, horizontal_bins:horizontal, bin_size }
     }
     pub fn drop_triangles(&self) {
         unsafe {
             dbg!(self.triangles.len());
             self.triangles.consume_all_elems(&mut |elem| {});
         }
+    }
+    pub fn get_clear(&self) -> &Vec<u32> {
+        &self.clear_buf
     }
     pub fn push_triangle(&self, tri:SingleFullTriangle,mut pre_calcd_data:PreCalcdData, pre_bounding_box_f:[f32 ; 4]) {
 
@@ -122,14 +129,37 @@ impl Bins {
 
 pub struct Bin {
     triangle_ids:LAMPMCVec<usize>,
+    pub image_data:SyncUnsafeCell<InternalBinImageData>,
     start_x:usize,
     start_y:usize,
     end_x:usize,
     end_y:usize,
     pub start_x_i:i32,
     pub start_y_i:i32,
+    pub start_x_f:f32,
+    pub start_y_f:f32,
     pub end_x_f:f32,
     pub end_y_f:f32,
     pub end_x_i:i32,
     pub end_y_i:i32
+}
+
+
+pub struct InternalBinImageData {
+    pub frambuf:Vec<u32>,
+    pub zbuf:Vec<f32>,
+    pub nbuf:Vec<u32>,
+    pub bin_size:usize,
+    pub bin_size_i:i32,
+}
+
+impl InternalBinImageData {
+    pub fn from_bin_size(bin_size:usize) -> Self {
+        Self { frambuf: vec![0; bin_size * bin_size], zbuf: vec![0.0; bin_size * bin_size], nbuf: vec![0; bin_size * bin_size], bin_size, bin_size_i: bin_size as i32 }
+    }
+    pub fn clear_bufs(&mut self, clear_vec:&Vec<u32>) {
+        self.frambuf.copy_from_slice(clear_vec);
+        self.nbuf.copy_from_slice(clear_vec); 
+        unsafe {self.zbuf.copy_from_slice(std::mem::transmute::<&Vec<u32>, &Vec<f32>>(clear_vec))};
+    }
 }

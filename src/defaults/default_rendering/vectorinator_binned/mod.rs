@@ -122,6 +122,8 @@ impl<'a, SD:ShaderData> VectorinatorRead<'a, SD> {
             // dbg!(tri.clone());
             //println!("WTF");
             rasterise_if_possible(tri, &mut internal_data, bin);
+            internal_data.copy_from_bin(bin);
+            unsafe {bin.image_data.get().as_mut().unwrap_unchecked().clear_bufs(self.bins.get_clear());};
         });
         self.shader_step_sync.wait_here(number_of_threads);
         let mut counter = self.shader_counter.clone();

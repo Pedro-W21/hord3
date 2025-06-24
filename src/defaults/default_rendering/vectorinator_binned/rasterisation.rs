@@ -22,6 +22,23 @@ impl<'a> InternalRasterisationData<'a> {
         }
         
     }
+    pub fn copy_from_bin(&mut self, bin:&Bin) {
+        let width = bin.end_x_i - bin.start_x_i;
+        unsafe {
+            let bin_image_data = bin.image_data.get().as_ref().unwrap_unchecked();
+            for i in bin.start_y_i..bin.end_y_i {
+                let y = (i * self.dims.get_width_i() as i32) as usize;
+                let y_bin = ((i - bin.start_y_i) * width) as usize;
+                let (start, end) = (y + bin.start_x_i as usize, y + bin.end_x_i as usize);
+                let range = start..end;
+                let range_bin = y_bin..(y_bin + width as usize);
+                assert!(range.len() == range_bin.len());
+                self.frambuf.get_unchecked_mut(range.clone()).copy_from_slice(bin_image_data.frambuf.get_unchecked(range_bin.clone()));
+                self.zbuf.get_unchecked_mut(range.clone()).copy_from_slice(bin_image_data.zbuf.get_unchecked(range_bin.clone()));
+                self.nbuf.get_unchecked_mut(range.clone()).copy_from_slice(bin_image_data.nbuf.get_unchecked(range_bin.clone()));
+            }
+        }
+    }
     pub fn clear_framebuf(&mut self, color_vec:&Vec<u32>) {
         self.frambuf.copy_from_slice(&color_vec);
     }
@@ -32,6 +49,7 @@ impl<'a> InternalRasterisationData<'a> {
         self.nbuf.copy_from_slice(&copy_vec);
     }
 }
+
 
 pub fn rasterise_if_possible<'a>(triangle:&(SingleFullTriangle, PreCalcdData), data:&mut InternalRasterisationData<'a>, bin:&Bin) {
     rasterise_any_collux(&triangle.0, data, &triangle.1, bin);
@@ -67,20 +85,21 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&mut InternalRasterisa
     let mut collux = (triangle.p1.r, triangle.p1.g, triangle.p1.b);
     let float_collux = collux_u8_a_f32(collux);
     unsafe {
-        let start_x_usize = bounding_box.0.0 as usize;
-        let mut start_y = bounding_box.0.1 as usize * data.dims.get_width();
+        let image_data = bin.image_data.get().as_mut().unwrap_unchecked();
+        let start_x_usize = (bounding_box.0.0 - bin.start_x_i) as usize;
+        let mut start_y = (bounding_box.0.1 - bin.start_y_i) as usize * data.dims.get_width();
         for y in 0..y_diff {
             let mut pixel = (start_x_usize + start_y);
             point.x = start_x;
             for x in 0..x_diff {
                 let (w0, w1, w2, z, is_in) = tri.calc_w0_w1_w2_z_is_in(&point);                    
                 if is_in && z < *data.zbuf.get_unchecked(pixel) {
-                    *data.zbuf.get_unchecked_mut(pixel) = z;
-                    *data.nbuf.get_unchecked_mut(pixel) = pre_data.packed_normal;
+                    *image_data.zbuf.get_unchecked_mut(pixel) = z;
+                    *image_data.nbuf.get_unchecked_mut(pixel) = pre_data.packed_normal;
                     let (u, v) = tri.calc_xi_yi(w0, w1, w2, z);
                     let texture_pixel = collux_u8_a_f32(argb_to_rgb(mip_map.data[(v.to_int_unchecked::<usize>() * mip_map.largeur_usize + u.to_int_unchecked::<usize>()).clamp(0, t_len)]));
                     let final_color = rgb_to_argb(collux_f32_a_u8((float_collux.0 * texture_pixel.0, float_collux.1 * texture_pixel.1, float_collux.2 * texture_pixel.2)));
-                    *data.frambuf.get_unchecked_mut(pixel) = final_color;
+                    *image_data.frambuf.get_unchecked_mut(pixel) = final_color;
                     // dbg!(pixel);
                 }
                 point.x += 1.0;
@@ -121,8 +140,9 @@ fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&mut InternalRasterisati
     //    dbg!(x_diff, y_diff);
     //}
     unsafe {
-        let start_x_usize = point.x.to_int_unchecked::<usize>();
-        let mut start_y = Simd::splat(ys_f as usize * data.dims.get_width());
+        let image_data = bin.image_data.get().as_mut().unwrap_unchecked();
+        let start_x_usize = (point.x - Simd::splat(bin.start_x_f)).to_int_unchecked::<usize>();
+        let mut start_y = Simd::splat((ys_f - bin.start_y_f) as usize * data.dims.get_width());
         
         'fory : for y in 0..y_diff {
             point.x = x_simd;
@@ -136,8 +156,8 @@ fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&mut InternalRasterisati
                     was_inside = true;
                     if zbuf_mask.any() {
                         let final_mask:Mask<isize, LANE_COUNT> = ((zbuf_mask & in_mask)).into();
-                        z.scatter_select_unchecked(data.zbuf, final_mask, pixel);
-                        Simd::splat(pre_data.packed_normal).scatter_select_unchecked(data.nbuf, final_mask, pixel);
+                        z.scatter_select_unchecked(&mut image_data.zbuf, final_mask, pixel);
+                        Simd::splat(pre_data.packed_normal).scatter_select_unchecked(&mut image_data.nbuf, final_mask, pixel);
                         let (u, v) = tri.calc_xi_yi(w0, w1, w2, z);
                         let texture_pixel = color_u32_seperate(Simd::gather_select_unchecked(&mip_map.data, Mask::splat(true), (v.to_int_unchecked::<usize>() * tri.texture_width_usize + u.to_int_unchecked::<usize>()).simd_min(t_len_simd), Simd::splat(0)));
                         let final_color = simd_u32_rgb_to_argb((mul_u32_color_and_divide(tri.collux.0, texture_pixel.0), mul_u32_color_and_divide(tri.collux.1, texture_pixel.1), mul_u32_color_and_divide(tri.collux.2, texture_pixel.2)));
@@ -147,7 +167,7 @@ fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&mut InternalRasterisati
                         let final_color = simd_f32_to_u32_color((tri.collux.0 * texture_pixel.0, tri.collux.1 * texture_pixel.1, tri.collux.2 * texture_pixel.2));
 
                         */
-                        final_color.scatter_select_unchecked(data.frambuf, final_mask, pixel);
+                        final_color.scatter_select_unchecked(&mut image_data.frambuf, final_mask, pixel);
                     }
                 }
                 else if was_inside {
