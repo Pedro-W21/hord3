@@ -111,7 +111,7 @@ impl Bins {
     pub fn reset_internal_counter(&self) {
         self.bins_counter.reset();
     }
-    pub fn do_for_all_triangle_ids<F:FnMut(&(SingleFullTriangle, PreCalcdData), &Bin)>(&self, func:&mut F) {
+    pub fn do_for_all_triangle_ids<F:FnMut(&(SingleFullTriangle, PreCalcdData), &Bin), G:FnMut(&Bin)>(&self, func:&mut F, post_func:&mut G) {
         let mut counter = self.bins_counter.clone();
         counter.initialise();
         for i in counter {
@@ -123,6 +123,7 @@ impl Bins {
                     
                 );
             }
+            post_func(&self.bins[i])
         }
     }
 }

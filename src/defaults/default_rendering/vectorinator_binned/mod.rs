@@ -121,8 +121,10 @@ impl<'a, SD:ShaderData> VectorinatorRead<'a, SD> {
         self.bins.do_for_all_triangle_ids(&mut |tri, bin| {
             // dbg!(tri.clone());
             //println!("WTF");
-            rasterise_if_possible(tri, &mut internal_data, bin);
-            internal_data.copy_from_bin(bin);
+            rasterise_if_possible(tri, &internal_data, bin);
+        }, &mut |bin| {
+            let mut new_internal_data = InternalRasterisationData::from_vectorinator_read(self, viewport_data.clone());
+            new_internal_data.copy_from_bin(bin);
             unsafe {bin.image_data.get().as_mut().unwrap_unchecked().clear_bufs(self.bins.get_clear());};
         });
         self.shader_step_sync.wait_here(number_of_threads);

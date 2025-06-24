@@ -29,7 +29,7 @@ impl<'a> InternalRasterisationData<'a> {
             let y_end = bin.end_y_i.min(self.dims.get_height_i() as i32);
             let x_end = bin.end_x_i.min(self.dims.get_width_i() as i32);
             let real_width = (x_end - bin.start_x_i) as usize;
-            println!("GOT HERE");
+            println!("GOT HERE {} {}", bin.start_x_i, bin.start_y_i);
             for i in bin.start_y_i..y_end {
                 let y = (i * self.dims.get_width_i() as i32) as usize;
                 let y_bin = ((i - bin.start_y_i) * width) as usize;
@@ -41,7 +41,7 @@ impl<'a> InternalRasterisationData<'a> {
                 self.zbuf.get_unchecked_mut(range.clone()).copy_from_slice(bin_image_data.zbuf.get_unchecked(range_bin.clone()));
                 self.nbuf.get_unchecked_mut(range.clone()).copy_from_slice(bin_image_data.nbuf.get_unchecked(range_bin.clone()));
             }
-            println!("GOT THERE");
+            println!("GOT THERE {} {}", bin.start_x_i, bin.start_y_i);
         }
     }
     pub fn clear_framebuf(&mut self, color_vec:&Vec<u32>) {
@@ -56,11 +56,11 @@ impl<'a> InternalRasterisationData<'a> {
 }
 
 
-pub fn rasterise_if_possible<'a>(triangle:&(SingleFullTriangle, PreCalcdData), data:&mut InternalRasterisationData<'a>, bin:&Bin) {
+pub fn rasterise_if_possible<'a>(triangle:&(SingleFullTriangle, PreCalcdData), data:&InternalRasterisationData<'a>, bin:&Bin) {
     rasterise_any_collux(&triangle.0, data, &triangle.1, bin);
 }
 
-fn rasterise_any_collux<'a>(triangle:&SingleFullTriangle, data:&mut InternalRasterisationData<'a>, pre_data:&PreCalcdData, bin:&Bin) {
+fn rasterise_any_collux<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisationData<'a>, pre_data:&PreCalcdData, bin:&Bin) {
     let bounding_box = triangle.complete_bounding_box( bin, pre_data.bounding_box_pre_binned);
     
     let x_dist_to_border = (data.dims.get_width() as i32).abs_diff(bounding_box.0.0.max(bounding_box.1.0)) as i32;
@@ -75,7 +75,7 @@ fn rasterise_any_collux<'a>(triangle:&SingleFullTriangle, data:&mut InternalRast
     }
 }
 
-fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&mut InternalRasterisationData<'a>, pre_data:&PreCalcdData, bounding_box:((i32, i32), (i32, i32)), bin:&Bin) {
+fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisationData<'a>, pre_data:&PreCalcdData, bounding_box:((i32, i32), (i32, i32)), bin:&Bin) {
     let texture = data.textures.get_text_with_id(triangle.texture_flags.0 as usize);
     let len = texture.get_mip_map(0).data.len();
     let mip_map = ((len as f32 * pre_data.inv_area).log2()) as usize;
@@ -117,7 +117,7 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&mut InternalRasterisa
     
 }
 
-fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&mut InternalRasterisationData<'a>, pre_data:&PreCalcdData, mut bounding_box:((i32, i32), (i32, i32)), dist_to_border:usize, bin:&Bin) {
+fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisationData<'a>, pre_data:&PreCalcdData, mut bounding_box:((i32, i32), (i32, i32)), dist_to_border:usize, bin:&Bin) {
     //println!("DOING A TRIANGLE");
     
     
