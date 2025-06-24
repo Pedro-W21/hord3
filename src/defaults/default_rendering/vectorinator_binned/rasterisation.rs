@@ -93,11 +93,11 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&mut InternalRasterisa
     
 }
 
-fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&mut InternalRasterisationData<'a>, pre_data:&PreCalcdData, bounding_box:((i32, i32), (i32, i32)), dist_to_border:usize, bin:&Bin) {
+fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&mut InternalRasterisationData<'a>, pre_data:&PreCalcdData, mut bounding_box:((i32, i32), (i32, i32)), dist_to_border:usize, bin:&Bin) {
     //println!("DOING A TRIANGLE");
     
     
-    
+    bounding_box.0.0 = bounding_box.0.0 - bounding_box.0.0 % LANE_COUNT_I32;
     let y_diff = bounding_box.1.1 - bounding_box.0.1;
     let texture = data.textures.get_text_with_id(triangle.texture_flags.0 as usize);
     let xs_f = bounding_box.0.0 as f32;
