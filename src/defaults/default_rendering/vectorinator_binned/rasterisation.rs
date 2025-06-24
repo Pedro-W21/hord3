@@ -89,14 +89,14 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisation
     let float_collux = collux_u8_a_f32(collux);
     unsafe {
         let image_data = bin.image_data.get().as_mut().unwrap_unchecked();
-        dbg!(bounding_box, bin.start_x_i, bin.start_y_i);
         let start_x_usize = (bounding_box.0.0 - bin.start_x_i) as usize;
         let mut start_y = (bounding_box.0.1 - bin.start_y_i) as usize * image_data.bin_size;
+        dbg!(bounding_box, bin.start_x_i, bin.start_y_i, start_x_usize, start_y, x_diff, y_diff, image_data.bin_size);
         for y in 0..y_diff {
             let mut pixel = (start_x_usize + start_y);
             point.x = start_x;
             for x in 0..x_diff {
-                let (w0, w1, w2, z, is_in) = tri.calc_w0_w1_w2_z_is_in(&point);                    
+                let (w0, w1, w2, z, is_in) = tri.calc_w0_w1_w2_z_is_in(&point);
                 if is_in && z < image_data.zbuf[pixel] {
                     *image_data.zbuf.get_unchecked_mut(pixel) = z;
                     *image_data.nbuf.get_unchecked_mut(pixel) = pre_data.packed_normal;
