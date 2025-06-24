@@ -97,7 +97,7 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisation
             point.x = start_x;
             for x in 0..x_diff {
                 let (w0, w1, w2, z, is_in) = tri.calc_w0_w1_w2_z_is_in(&point);
-                if is_in && z < image_data.zbuf[pixel] {
+                if is_in && z < *image_data.zbuf.get_unchecked(pixel) {
                     *image_data.zbuf.get_unchecked_mut(pixel) = z;
                     *image_data.nbuf.get_unchecked_mut(pixel) = pre_data.packed_normal;
                     let (u, v) = tri.calc_xi_yi(w0, w1, w2, z);
@@ -129,7 +129,7 @@ fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisationDa
     for i in 0..LANE_COUNT {
         x_array[i] = xs_f + i as f32 + 0.5;
     }
-    let x_diff = (bounding_box.1.0 + bounding_box.1.0 % LANE_COUNT_I32).min(bin.end_x_i) - bounding_box.0.0;
+    let x_diff = (bounding_box.1.0 + LANE_COUNT_I32 - bounding_box.1.0 % LANE_COUNT_I32).min(bin.end_x_i) - bounding_box.0.0;
 
     let x_simd_part = x_diff / LANE_COUNT_I32;
     let mip_map = texture.get_mip_map(pre_data.mip_map);
