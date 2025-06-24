@@ -36,9 +36,9 @@ impl<'a> InternalRasterisationData<'a> {
                 let range = start..end;
                 let range_bin = y_bin..(y_bin + real_width);
                 assert!(range.len() == range_bin.len());
-                self.frambuf.get_unchecked_mut(range.clone()).copy_from_slice(bin_image_data.frambuf.get_unchecked(range_bin.clone()));
-                self.zbuf.get_unchecked_mut(range.clone()).copy_from_slice(bin_image_data.zbuf.get_unchecked(range_bin.clone()));
-                self.nbuf.get_unchecked_mut(range.clone()).copy_from_slice(bin_image_data.nbuf.get_unchecked(range_bin.clone()));
+                self.frambuf[range.clone()].copy_from_slice(&bin_image_data.frambuf[range_bin.clone()]);
+                self.zbuf[range.clone()].copy_from_slice(&bin_image_data.zbuf[range_bin.clone()]);
+                self.nbuf[range.clone()].copy_from_slice(&bin_image_data.nbuf[range_bin.clone()]);
             }
         }
     }
@@ -96,7 +96,7 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisation
             point.x = start_x;
             for x in 0..x_diff {
                 let (w0, w1, w2, z, is_in) = tri.calc_w0_w1_w2_z_is_in(&point);                    
-                if is_in && z < *image_data.zbuf.get_unchecked(pixel) {
+                if is_in && z < image_data.zbuf[pixel] {
                     *image_data.zbuf.get_unchecked_mut(pixel) = z;
                     *image_data.nbuf.get_unchecked_mut(pixel) = pre_data.packed_normal;
                     let (u, v) = tri.calc_xi_yi(w0, w1, w2, z);
