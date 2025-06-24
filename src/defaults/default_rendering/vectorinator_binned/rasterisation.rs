@@ -79,7 +79,7 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisation
     let mip_map = ((len as f32 * pre_data.inv_area).log2()) as usize;
     let t_len = texture.get_mip_map(mip_map).len_m1;
 
-    let x_diff = ((bounding_box.1.0 + 1).min(data.dims.get_width_i() as i32 - 1) - bounding_box.0.0);
+    let x_diff = ((bounding_box.1.0).min(data.dims.get_width_i() as i32 - 1) - bounding_box.0.0);
     let y_diff = bounding_box.1.1 - bounding_box.0.1;
     let mip_map = texture.get_mip_map(mip_map);
     let tri = TriangleData::from_tri_area(&triangle, pre_data, mip_map);
@@ -91,7 +91,7 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisation
         let image_data = bin.image_data.get().as_mut().unwrap_unchecked();
         let start_x_usize = (bounding_box.0.0 - bin.start_x_i) as usize;
         let mut start_y = (bounding_box.0.1 - bin.start_y_i) as usize * image_data.bin_size;
-        dbg!(bounding_box, bin.start_x_i, bin.start_y_i, start_x_usize, start_y, x_diff, y_diff, image_data.bin_size);
+        //dbg!(bounding_box, bin.start_x_i, bin.start_y_i, start_x_usize, start_y, x_diff, y_diff, image_data.bin_size);
         for y in 0..y_diff {
             let mut pixel = (start_x_usize + start_y);
             point.x = start_x;
