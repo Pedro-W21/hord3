@@ -23,15 +23,18 @@ impl<'a> InternalRasterisationData<'a> {
         
     }
     pub fn copy_from_bin(&mut self, bin:&Bin) {
-        let width = bin.end_x_i - bin.start_x_i;
         unsafe {
             let bin_image_data = bin.image_data.get().as_ref().unwrap_unchecked();
-            for i in bin.start_y_i..bin.end_y_i {
+            let width = bin_image_data.bin_size_i;
+            let y_end = bin.end_y_i.min(self.dims.get_height_i() as i32);
+            let x_end = bin.end_x_i.min(self.dims.get_width_i() as i32);
+            let real_width = (bin.start_x_i - x_end) as usize;
+            for i in bin.start_y_i..y_end {
                 let y = (i * self.dims.get_width_i() as i32) as usize;
                 let y_bin = ((i - bin.start_y_i) * width) as usize;
-                let (start, end) = (y + bin.start_x_i as usize, y + bin.end_x_i as usize);
+                let (start, end) = (y + bin.start_x_i as usize, y + x_end as usize);
                 let range = start..end;
-                let range_bin = y_bin..(y_bin + width as usize);
+                let range_bin = y_bin..(y_bin + real_width);
                 assert!(range.len() == range_bin.len());
                 self.frambuf.get_unchecked_mut(range.clone()).copy_from_slice(bin_image_data.frambuf.get_unchecked(range_bin.clone()));
                 self.zbuf.get_unchecked_mut(range.clone()).copy_from_slice(bin_image_data.zbuf.get_unchecked(range_bin.clone()));
@@ -87,7 +90,7 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&mut InternalRasterisa
     unsafe {
         let image_data = bin.image_data.get().as_mut().unwrap_unchecked();
         let start_x_usize = (bounding_box.0.0 - bin.start_x_i) as usize;
-        let mut start_y = (bounding_box.0.1 - bin.start_y_i) as usize * data.dims.get_width();
+        let mut start_y = (bounding_box.0.1 - bin.start_y_i) as usize * image_data.bin_size;
         for y in 0..y_diff {
             let mut pixel = (start_x_usize + start_y);
             point.x = start_x;
@@ -142,7 +145,7 @@ fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&mut InternalRasterisati
     unsafe {
         let image_data = bin.image_data.get().as_mut().unwrap_unchecked();
         let start_x_usize = (point.x - Simd::splat(bin.start_x_f)).to_int_unchecked::<usize>();
-        let mut start_y = Simd::splat((ys_f - bin.start_y_f) as usize * data.dims.get_width());
+        let mut start_y = Simd::splat((ys_f - bin.start_y_f) as usize * image_data.bin_size);
         
         'fory : for y in 0..y_diff {
             point.x = x_simd;
