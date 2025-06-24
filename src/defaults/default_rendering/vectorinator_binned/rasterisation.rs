@@ -63,7 +63,7 @@ fn rasterise_any_collux<'a>(triangle:&SingleFullTriangle, data:&InternalRasteris
     
     let x_dist_to_border = (data.dims.get_width() as i32).abs_diff(bounding_box.0.0.max(bounding_box.1.0)) as i32;
     
-    if x_dist_to_border > LANE_COUNT_I32 && pre_data.area > 50.0 && false {
+    if x_dist_to_border > LANE_COUNT_I32 && pre_data.area > 50.0 {
         //full_normal_tri(triangle, data, area, bounding_box);
         full_simd_tri(triangle, data, pre_data, bounding_box, x_dist_to_border as usize, bin);
     }
@@ -131,7 +131,7 @@ fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisationDa
     }
     let x_diff = bounding_box.1.0 - bounding_box.0.0;
 
-    let x_simd_part = x_diff / LANE_COUNT_I32 + 1;
+    let x_simd_part = x_diff / LANE_COUNT_I32;
     let mip_map = texture.get_mip_map(pre_data.mip_map);
     
     let addition_vector = Simd::splat(LANE_COUNT_F32);
