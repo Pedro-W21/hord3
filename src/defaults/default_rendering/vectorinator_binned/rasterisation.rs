@@ -29,7 +29,7 @@ impl<'a> InternalRasterisationData<'a> {
         self.zbuf.copy_from_slice(&copy_vec);
     }
     pub fn clear_nbuf(&mut self, copy_vec:&Vec<u32>) {
-        
+        self.nbuf.copy_from_slice(&copy_vec);
     }
 }
 

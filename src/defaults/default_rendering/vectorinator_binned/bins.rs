@@ -1,6 +1,6 @@
 use std::simd::{num::SimdFloat, Simd};
 
-use crate::horde::{frontend::HordeWindowDimensions, utils::{late_alloc_mpmc_vec::LAMPMCVec, mpsc_vec::MPSCVec, parallel_counter::ParallelCounter}};
+use crate::horde::{frontend::HordeWindowDimensions, utils::{late_alloc_mpmc_vec::LAMPMCVec, parallel_counter::ParallelCounter}};
 
 use super::{simd_geo::LANE_COUNT, triangles::SingleFullTriangle};
 
