@@ -79,7 +79,7 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisation
     let mip_map = ((len as f32 * pre_data.inv_area).log2()) as usize;
     let t_len = texture.get_mip_map(mip_map).len_m1;
 
-    let x_diff = ((bounding_box.1.0).min(data.dims.get_width_i() as i32 - 1) - bounding_box.0.0);
+    let x_diff = ((bounding_box.1.0).min(data.dims.get_width_i() as i32 - 1).min(bin.end_x_i) - bounding_box.0.0);
     let y_diff = bounding_box.1.1 - bounding_box.0.1;
     let mip_map = texture.get_mip_map(mip_map);
     let tri = TriangleData::from_tri_area(&triangle, pre_data, mip_map);
