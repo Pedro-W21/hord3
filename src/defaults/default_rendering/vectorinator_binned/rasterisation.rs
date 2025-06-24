@@ -96,13 +96,13 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisation
             point.x = start_x;
             for x in 0..x_diff {
                 let (w0, w1, w2, z, is_in) = tri.calc_w0_w1_w2_z_is_in(&point);                    
-                if is_in && z < *data.zbuf.get_unchecked(pixel) {
-                    *image_data.zbuf.get_mut(pixel).unwrap() = z;
-                    *image_data.nbuf.get_mut(pixel).unwrap() = pre_data.packed_normal;
+                if is_in && z < image_data.zbuf[pixel] {
+                    *image_data.zbuf.get_unchecked_mut(pixel) = z;
+                    *image_data.nbuf.get_unchecked_mut(pixel) = pre_data.packed_normal;
                     let (u, v) = tri.calc_xi_yi(w0, w1, w2, z);
                     let texture_pixel = collux_u8_a_f32(argb_to_rgb(mip_map.data[(v.to_int_unchecked::<usize>() * mip_map.largeur_usize + u.to_int_unchecked::<usize>()).clamp(0, t_len)]));
                     let final_color = rgb_to_argb(collux_f32_a_u8((float_collux.0 * texture_pixel.0, float_collux.1 * texture_pixel.1, float_collux.2 * texture_pixel.2)));
-                    *image_data.frambuf.get_mut(pixel).unwrap() = final_color;
+                    *image_data.frambuf.get_unchecked_mut(pixel) = final_color;
                     // dbg!(pixel);
                 }
                 point.x += 1.0;
@@ -159,8 +159,8 @@ fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisationDa
                     was_inside = true;
                     if zbuf_mask.any() {
                         let final_mask:Mask<isize, LANE_COUNT> = ((zbuf_mask & in_mask)).into();
-                        z.scatter_select(&mut image_data.zbuf, final_mask, pixel);
-                        Simd::splat(pre_data.packed_normal).scatter_select(&mut image_data.nbuf, final_mask, pixel);
+                        z.scatter_select_unchecked(&mut image_data.zbuf, final_mask, pixel);
+                        Simd::splat(pre_data.packed_normal).scatter_select_unchecked(&mut image_data.nbuf, final_mask, pixel);
                         let (u, v) = tri.calc_xi_yi(w0, w1, w2, z);
                         let texture_pixel = color_u32_seperate(Simd::gather_select_unchecked(&mip_map.data, Mask::splat(true), (v.to_int_unchecked::<usize>() * tri.texture_width_usize + u.to_int_unchecked::<usize>()).simd_min(t_len_simd), Simd::splat(0)));
                         let final_color = simd_u32_rgb_to_argb((mul_u32_color_and_divide(tri.collux.0, texture_pixel.0), mul_u32_color_and_divide(tri.collux.1, texture_pixel.1), mul_u32_color_and_divide(tri.collux.2, texture_pixel.2)));
@@ -170,7 +170,7 @@ fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisationDa
                         let final_color = simd_f32_to_u32_color((tri.collux.0 * texture_pixel.0, tri.collux.1 * texture_pixel.1, tri.collux.2 * texture_pixel.2));
 
                         */
-                        final_color.scatter_select(&mut image_data.frambuf, final_mask, pixel);
+                        final_color.scatter_select_unchecked(&mut image_data.frambuf, final_mask, pixel);
                     }
                 }
                 else if was_inside {
