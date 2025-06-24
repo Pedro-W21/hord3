@@ -1,4 +1,4 @@
-use std::{cell::SyncUnsafeCell, simd::{num::SimdFloat, Simd}};
+use std::{cell::SyncUnsafeCell, f32::INFINITY, simd::{num::SimdFloat, Simd}};
 
 use crate::horde::{frontend::HordeWindowDimensions, utils::{late_alloc_mpmc_vec::LAMPMCVec, parallel_counter::ParallelCounter}};
 
@@ -161,6 +161,6 @@ impl InternalBinImageData {
     pub fn clear_bufs(&mut self, clear_vec:&Vec<u32>) {
         self.frambuf.copy_from_slice(clear_vec);
         self.nbuf.copy_from_slice(clear_vec); 
-        unsafe {self.zbuf.copy_from_slice(std::mem::transmute::<&Vec<u32>, &Vec<f32>>(clear_vec))};
+        self.zbuf.copy_from_slice(&vec![INFINITY ; self.bin_size * self.bin_size]);
     }
 }
