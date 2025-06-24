@@ -37,9 +37,9 @@ impl<'a> InternalRasterisationData<'a> {
                 let range = start..end;
                 let range_bin = y_bin..(y_bin + real_width);
                 assert!(range.len() == range_bin.len());
-                self.frambuf.get_mut(range.clone()).unwrap().copy_from_slice(bin_image_data.frambuf.get_unchecked(range_bin.clone()));
-                self.zbuf.get_mut(range.clone()).unwrap().copy_from_slice(bin_image_data.zbuf.get_unchecked(range_bin.clone()));
-                self.nbuf.get_mut(range.clone()).unwrap().copy_from_slice(bin_image_data.nbuf.get_unchecked(range_bin.clone()));
+                self.frambuf.get_mut(range.clone()).unwrap().copy_from_slice(bin_image_data.frambuf.get(range_bin.clone()).unwrap());
+                self.zbuf.get_mut(range.clone()).unwrap().copy_from_slice(bin_image_data.zbuf.get(range_bin.clone()).unwrap());
+                self.nbuf.get_mut(range.clone()).unwrap().copy_from_slice(bin_image_data.nbuf.get(range_bin.clone()).unwrap());
             }
             println!("GOT THERE {} {}", bin.start_x_i, bin.start_y_i);
         }
