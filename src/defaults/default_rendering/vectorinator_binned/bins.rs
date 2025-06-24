@@ -161,6 +161,6 @@ impl InternalBinImageData {
     pub fn clear_bufs(&mut self, clear_vec:&Vec<u32>) {
         self.frambuf.copy_from_slice(clear_vec);
         self.nbuf.copy_from_slice(clear_vec); 
-        // unsafe {self.zbuf.copy_from_slice(std::mem::transmute::<&Vec<u32>, &Vec<f32>>(clear_vec))};
+        unsafe {self.zbuf.copy_from_slice(std::mem::transmute::<&Vec<u32>, &Vec<f32>>(clear_vec))};
     }
 }

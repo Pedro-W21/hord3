@@ -129,7 +129,7 @@ fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisationDa
     for i in 0..LANE_COUNT {
         x_array[i] = xs_f + i as f32 + 0.5;
     }
-    let x_diff = bounding_box.1.0 - bounding_box.0.0;
+    let x_diff = (bounding_box.1.0 + bounding_box.1.0 % LANE_COUNT_I32).min(bin.end_x_i) - bounding_box.0.0;
 
     let x_simd_part = x_diff / LANE_COUNT_I32;
     let mip_map = texture.get_mip_map(pre_data.mip_map);
