@@ -29,6 +29,7 @@ impl<'a> InternalRasterisationData<'a> {
             let y_end = bin.end_y_i.min(self.dims.get_height_i() as i32);
             let x_end = bin.end_x_i.min(self.dims.get_width_i() as i32);
             let real_width = (x_end - bin.start_x_i) as usize;
+            println!("GOT HERE");
             for i in bin.start_y_i..y_end {
                 let y = (i * self.dims.get_width_i() as i32) as usize;
                 let y_bin = ((i - bin.start_y_i) * width) as usize;
@@ -40,6 +41,7 @@ impl<'a> InternalRasterisationData<'a> {
                 self.zbuf.get_unchecked_mut(range.clone()).copy_from_slice(bin_image_data.zbuf.get_unchecked(range_bin.clone()));
                 self.nbuf.get_unchecked_mut(range.clone()).copy_from_slice(bin_image_data.nbuf.get_unchecked(range_bin.clone()));
             }
+            println!("GOT THERE");
         }
     }
     pub fn clear_framebuf(&mut self, color_vec:&Vec<u32>) {
