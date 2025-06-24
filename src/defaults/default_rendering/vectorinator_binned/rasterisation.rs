@@ -156,7 +156,7 @@ fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisationDa
                 let (w0, w1, w2, z, in_mask) = tri.calc_w0_w1_w2_z_is_in(&point);
                 
                 if in_mask.any() {
-                    let zbuf_mask = Simd::gather_select_unchecked(&data.zbuf, Mask::splat(true), pixel, Simd::splat(INFINITY)).simd_ge(z);
+                    let zbuf_mask = Simd::gather_select_unchecked(&image_data.zbuf, Mask::splat(true), pixel, Simd::splat(INFINITY)).simd_ge(z);
                     was_inside = true;
                     if zbuf_mask.any() {
                         let final_mask:Mask<isize, LANE_COUNT> = ((zbuf_mask & in_mask)).into();
