@@ -28,7 +28,7 @@ impl<'a> InternalRasterisationData<'a> {
             let width = bin_image_data.bin_size_i;
             let y_end = bin.end_y_i.min(self.dims.get_height_i() as i32);
             let x_end = bin.end_x_i.min(self.dims.get_width_i() as i32);
-            let real_width = (bin.start_x_i - x_end) as usize;
+            let real_width = (x_end - bin.start_x_i) as usize;
             for i in bin.start_y_i..y_end {
                 let y = (i * self.dims.get_width_i() as i32) as usize;
                 let y_bin = ((i - bin.start_y_i) * width) as usize;
