@@ -30,6 +30,9 @@ impl<'a> InternalRasterisationData<'a> {
             let x_end = bin.end_x_i.min(self.dims.get_width_i() as i32);
             let real_width = (x_end - bin.start_x_i) as usize;
             for i in bin.start_y_i..y_end {
+                if bin_image_data.frambuf[0] != 0 {
+                    println!("AAA");
+                }
                 let y = (i * self.dims.get_width_i() as i32) as usize;
                 let y_bin = ((i - bin.start_y_i) * width) as usize;
                 let (start, end) = (y + bin.start_x_i as usize, y + x_end as usize);
