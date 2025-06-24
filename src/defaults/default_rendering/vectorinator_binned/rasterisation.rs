@@ -96,7 +96,7 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisation
             point.x = start_x;
             for x in 0..x_diff {
                 let (w0, w1, w2, z, is_in) = tri.calc_w0_w1_w2_z_is_in(&point);                    
-                if is_in && z < image_data.zbuf[pixel] {
+                if is_in && z < *image_data.zbuf.get_unchecked(pixel) {
                     *image_data.zbuf.get_unchecked_mut(pixel) = z;
                     *image_data.nbuf.get_unchecked_mut(pixel) = pre_data.packed_normal;
                     let (u, v) = tri.calc_xi_yi(w0, w1, w2, z);
@@ -109,7 +109,7 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisation
                 pixel += 1;
             }
             point.y += 1.0;
-            start_y += data.dims.get_width()
+            start_y += image_data.bin_size;
         }
     }
     
@@ -175,14 +175,14 @@ fn full_simd_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisationDa
                 }
                 else if was_inside {
                     point.y += Simd::splat(1.0);
-                    start_y += Simd::splat(data.dims.get_width());
+                    start_y += Simd::splat(image_data.bin_size);
                     continue 'fory;
                 }
                 point.x += addition_vector;
                 pixel += Simd::splat(LANE_COUNT);
             }
             point.y += Simd::splat(1.0);
-            start_y += Simd::splat(data.dims.get_width());
+            start_y += Simd::splat(image_data.bin_size);
         }
     }
 
