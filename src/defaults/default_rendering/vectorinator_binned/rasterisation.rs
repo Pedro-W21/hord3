@@ -89,6 +89,7 @@ fn full_normal_tri<'a>(triangle:&SingleFullTriangle, data:&InternalRasterisation
     let float_collux = collux_u8_a_f32(collux);
     unsafe {
         let image_data = bin.image_data.get().as_mut().unwrap_unchecked();
+        dbg!(bounding_box, bin.start_x_i, bin.start_y_i);
         let start_x_usize = (bounding_box.0.0 - bin.start_x_i) as usize;
         let mut start_y = (bounding_box.0.1 - bin.start_y_i) as usize * image_data.bin_size;
         for y in 0..y_diff {
