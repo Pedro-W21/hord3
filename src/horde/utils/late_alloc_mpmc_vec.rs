@@ -70,7 +70,6 @@ impl<T:Clone + Sync + Send> LAMPMCVec<T> {
             for _i in 0..data.capacity() {
                 data.push(SyncUnsafeCell::new(MaybeUninit::uninit()));
             }
-
         }
     }
 }
