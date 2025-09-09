@@ -66,7 +66,6 @@ impl Bins {
     }
     pub fn drop_triangles(&self) {
         unsafe {
-            dbg!(self.triangles.len());
             self.triangles.consume_all_elems(&mut |elem| {});
         }
     }
