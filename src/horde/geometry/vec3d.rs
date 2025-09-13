@@ -270,6 +270,13 @@ impl<N:Number, const K:usize> Add<Vec3D<N>> for [Vec3D<N> ; K] {
     fn add(self, rhs: Vec3D<N>) -> Self::Output {
         self.map(|vec| {vec + rhs})
     }
+}
+
+impl<N:Number, const K:usize> Mul<Vec3D<N>> for [Vec3D<N> ; K] {
+    type Output = Self;
+    fn mul(self, rhs: Vec3D<N>) -> Self::Output {
+        self.map(|vec| {vec.component_product(&rhs)})
+    }
 } 
 
 impl<N:Number> Sub<Vec3D<N>> for &Vec3D<N> {
