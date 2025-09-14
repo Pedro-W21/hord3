@@ -279,7 +279,7 @@ impl WindowingHandler {
                 mouse_pos:mouse_pos_clone
             };
             loop {
-                match windowing_thread.rcv_order.recv_timeout(Duration::from_millis(10000)).expect("womp womp, message passing error on windowing thread") {
+                match windowing_thread.rcv_order.recv_timeout(Duration::from_millis(100000)).expect("womp womp, message passing error on windowing thread") {
                     WindowingOrder::Present => {windowing_thread.window.use_framebuffer(&mut windowing_thread.framebuffer.write().unwrap()); windowing_thread.send_event.send(WindowingEvent {time:Instant::now(), variant:WindowingEventVariant::DoneWithFramebuffer}); windowing_thread.window.present()},
                     WindowingOrder::Stop => break,
                     WindowingOrder::GetAllEventsAndMouse => {windowing_thread.window.change_mouse_state(windowing_thread.mouse_pos.clone()); windowing_thread.send_event.send(WindowingEvent { variant: WindowingEventVariant::DoneWithEvents, time: Instant::now() }); let mut events = windowing_thread.window.get_events(); events.into_iter().for_each(|evt| {windowing_thread.send_event.send(evt);});}
