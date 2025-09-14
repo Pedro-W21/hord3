@@ -63,7 +63,7 @@ fn rasterise_any_collux<'a>(triangle:&SingleFullTriangle, data:&InternalRasteris
     
     let x_dist_to_border = (data.dims.get_width() as i32).abs_diff(bounding_box.0.0.max(bounding_box.1.0)) as i32;
     
-    if x_dist_to_border > LANE_COUNT_I32 && pre_data.area > 50.0 {
+    if x_dist_to_border > LANE_COUNT_I32 && pre_data.area > 50.0 && false {
         //full_normal_tri(triangle, data, area, bounding_box);
         full_simd_tri(triangle, data, pre_data, bounding_box, x_dist_to_border as usize, bin);
     }
@@ -345,8 +345,8 @@ impl TriangleData {
 
     pub fn calc_xi_yi(&self, w0:f32, w1:f32, w2:f32, z:f32) -> (f32, f32) {
         (
-            (self.u1 * w0 + self.u2 * w1 + self.u3 * w2) * z * self.texture_width,
-            (self.v1 * w0 + self.v2 * w1 + self.v3 * w2) * z * self.texture_height,
+            (self.u1 * w0 + self.u2 * w1 + self.u3 * w2).fract() * z * self.texture_width,
+            (self.v1 * w0 + self.v2 * w1 + self.v3 * w2).fract() * z * self.texture_height,
         )
     }
 
