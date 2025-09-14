@@ -345,8 +345,8 @@ impl TriangleData {
 
     pub fn calc_xi_yi(&self, w0:f32, w1:f32, w2:f32, z:f32) -> (f32, f32) {
         (
-            (self.u1 * w0 + self.u2 * w1 + self.u3 * w2).fract() * z * self.texture_width,
-            (self.v1 * w0 + self.v2 * w1 + self.v3 * w2).fract() * z * self.texture_height,
+            ((self.u1 * w0 + self.u2 * w1 + self.u3 * w2) * z).fract() * self.texture_width,
+            ((self.v1 * w0 + self.v2 * w1 + self.v3 * w2) * z).fract() * self.texture_height,
         )
     }
 
