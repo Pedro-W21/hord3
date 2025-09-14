@@ -63,7 +63,7 @@ fn rasterise_any_collux<'a>(triangle:&SingleFullTriangle, data:&InternalRasteris
     
     let x_dist_to_border = (data.dims.get_width() as i32).abs_diff(bounding_box.0.0.max(bounding_box.1.0)) as i32;
     
-    if x_dist_to_border > LANE_COUNT_I32 && pre_data.area > 50.0 && false {
+    if x_dist_to_border > LANE_COUNT_I32 && pre_data.area > 50.0 {
         //full_normal_tri(triangle, data, area, bounding_box);
         full_simd_tri(triangle, data, pre_data, bounding_box, x_dist_to_border as usize, bin);
     }
@@ -244,8 +244,8 @@ impl SIMDTriangleData {
     pub fn calc_xi_yi(&self, w0:Simd<f32, LANE_COUNT>, w1:Simd<f32, LANE_COUNT>, w2:Simd<f32, LANE_COUNT>, z:Simd<f32, LANE_COUNT>) -> (Simd<f32, LANE_COUNT>, Simd<f32, LANE_COUNT>) {
         let z = Simd::splat(1.0)/(w0 * self.p1_simd.z + w1 * self.p2_simd.z + w2 * self.p3_simd.z);
         (
-            (self.u1 * w0 + self.u2 * w1 + self.u3 * w2) * z * self.texture_width,
-            (self.v1 * w0 + self.v2 * w1 + self.v3 * w2) * z * self.texture_height,
+            ((self.u1 * w0 + self.u2 * w1 + self.u3 * w2) * z).fract() * self.texture_width,
+            ((self.v1 * w0 + self.v2 * w1 + self.v3 * w2) * z).fract() * self.texture_height,
         )
     }
     pub fn calc_xi_yi_z_is_in(&self, point:&SIMDVec2Df) -> (Simd<f32, LANE_COUNT>, Simd<f32, LANE_COUNT>, Simd<f32, LANE_COUNT>, Mask<i32, LANE_COUNT>) {
