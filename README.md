@@ -12,8 +12,9 @@ There is a demo reel/game buildable on x86 Linux at the following repository : [
 - this is not meant to be usable by anyone but myself at the moment, however this is a long term goal
 - this aims for full memory safety and reasonable code portability, but isn't currently guaranteed to be safe on all buildable platforms, this is as much a game engine as it is a way for me to see how far Rust code can be optimized in a portable way while using `unsafe`, which may entail memory safety missteps (I apologize for any of those and strive for full safety if I ever want to make this more than a personal project)
 
-## Compatibility
+## Compatibility and Safety
 
 this uses no more platform-specific code than what `minifb` supports for windowing, and should be buildable on all tier 1 rust targets, but there are a few caveats :
-    - this has only been built and tested on my personal Fedora 41 KDE x86 machine
-    - the rendering code in particular abuses atomicity in a way that *may* make it currently unsound on ARM platforms without TSO enabled, or at least produce unintended visual artifacts, but this hasn't been tested yet 
+- this has only been built and tested on my personal Fedora 42 KDE x86_64 machine
+- the rendering code in particular abuses atomicity in a way that makes it currently produce unsound code on ARM platforms without TSO enabled, or at least produce unintended visual artifacts, but this hasn't been tested yet
+- the current rendering code is unsound in the Rust sense on all platforms (gets multiple mutable references to a single struct at the same time) but compiles to (to my knowledge) safe code on x86_64
