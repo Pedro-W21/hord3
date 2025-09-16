@@ -308,11 +308,15 @@ pub struct Mesh {
     lods:MeshLODS,
     name:MeshName,
     size:HordeFloat,
+    lod_factor:HordeFloat
 }
 
 impl Mesh {
     pub fn new(lods:MeshLODS, name:MeshName, size:HordeFloat) -> Self {
-        Self { lods, name, size }
+        Self { lods, name, size, lod_factor: 0.01 }
+    }
+    pub fn with_lod_factor(self, factor:HordeFloat) -> Self {
+        Self { lods: self.lods, name: self.name, size: self.size, lod_factor: factor }
     }
     pub fn might_be_renderable(&self, poscam:&Vec3Df, rotat: &Rotation, at:&Vec3Df, viewport_data:&ViewportData) -> Option<Vec3DfCam> {
         let cam = Vec3DfCam::from_realspace(*at, poscam, rotat);
@@ -618,7 +622,7 @@ impl MeshInstance {
                 match mesh.might_be_renderable(poscam, rotat_cam, &self.pos, viewport_data) {
                     Some(camera_space) => match mesh.should_be_rendered(camera_space, viewport_data) {
                         Some(raster) => {
-                            let lod = mesh.lods.get_lod_bounded((raster / 100.0) as usize );
+                            let lod = mesh.lods.get_lod_bounded((raster * mesh.lod_factor) as usize );
                             match lod {
                                 MeshLODType::Mesh(mesh) => {
                                     
