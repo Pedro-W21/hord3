@@ -58,9 +58,8 @@ impl<T:FromBytes<Decoder = BD>, BD:ByteDecoder<T>> ByteDecoderUtilities<T> for B
     }
     fn decode_multiple_from_slice(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Vec<T> {
         let mut total_decoded = Vec::with_capacity(2);
-        let mut end_of_slice = slice_to_decode.len() - 1;
         let mut end_of_decode = 0;
-        while end_of_decode < end_of_slice {
+        while end_of_decode < slice_to_decode.len() {
             match self.decode_slice_borrow(bytes, &slice_to_decode[end_of_decode..slice_to_decode.len()]) {
                 Some((decoded, bytes_read)) => {
                     println!("decoded after {} bytes read", bytes_read);
@@ -68,7 +67,7 @@ impl<T:FromBytes<Decoder = BD>, BD:ByteDecoder<T>> ByteDecoderUtilities<T> for B
                     total_decoded.push(decoded);
                     *self = T::get_decoder();
                 },
-                None => end_of_decode = end_of_slice
+                None => end_of_decode = slice_to_decode.len()
             }
         }
 
