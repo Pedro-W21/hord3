@@ -558,20 +558,24 @@ impl<ME:MultiplayerEngine> HordeClientTcp<ME> {
         packet.add_bytes(&mut bytes);
         self.stream.write_all(&bytes).unwrap();
     }
-    fn get_response_to(&mut self, packet:HordeMultiplayerPacket<ME>, players:&mut HordePlayers<ME::ID>, engine:&mut ME) -> Vec<HordeMultiplayerPacket<ME>> {
+    fn get_response_to(&mut self, packet:HordeMultiplayerPacket<ME>, players:&mut HordePlayers<ME::ID>, engine:&mut ME, client_ids:&Vec<ME::ID>) -> Vec<HordeMultiplayerPacket<ME>> {
         let mut response = Vec::with_capacity(4);
         match packet {
             HordeMultiplayerPacket::Chat { from_player, text } => println!("{} : {}", from_player, text),
             HordeMultiplayerPacket::DoYouAgree(_) => panic!("Server sent agree packet, impossible"),
             HordeMultiplayerPacket::PlayerJoined(player) => players.players.write().unwrap().push(player),
             HordeMultiplayerPacket::ResetComponent { id, data } => {
-                engine.set_component(id, data);
+                if !client_ids.contains(&id) {
+                    engine.set_component(id, data);
+                }
             },
             HordeMultiplayerPacket::ResetWorld { wd } => {
                 engine.set_world(wd);
             },
             HordeMultiplayerPacket::SpreadEvent(evt) => {
-                engine.apply_event(evt);
+                if !client_ids.contains(&ME::get_target(&evt)) {
+                    engine.apply_event(evt);
+                }
             },
             HordeMultiplayerPacket::SendMeEverything => panic!("Server cannot ask to be sent everything"),
             HordeMultiplayerPacket::ThatsUrPlayerID(_, _) => panic!("Server can't send player ID past handshake"),
@@ -594,14 +598,14 @@ impl<ME:MultiplayerEngine> HordeClientTcp<ME> {
     /// Call first
     fn receive_all_events_and_respond(&mut self, events_to_spread:&Receiver<ME::GE>, players:&mut HordePlayers<ME::ID>, engine:&mut ME, chat:&Receiver<String>, id:usize, client_ids:Vec<ME::ID>) {
         self.send_all_events(events_to_spread, chat, id);
-        for id in client_ids {
-            for compo in engine.get_components_to_sync_for(&id) {
+        for id in &client_ids {
+            for compo in engine.get_components_to_sync_for(id) {
                 self.send_packet(HordeMultiplayerPacket::ResetComponent { id:id.clone(), data: compo });
             }
         }
         let packets = self.decode_events();
         for packet in packets {
-            let response = self.get_response_to(packet, players, engine);
+            let response = self.get_response_to(packet, players, engine, &client_ids);
             for resp in response {
                 self.send_packet(resp);
             }
