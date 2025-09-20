@@ -182,6 +182,7 @@ pub fn decode_from_tcp<const BLOCKING:bool, T:FromBytes + ToBytes>(decoder:&mut 
         loop {
             match tcp.read(tcp_buffer) {
                 Ok(bytes_read) => {
+                    println!("{}", bytes_read);
                     all_decoded.append(&mut decoder.decode_multiple_from_slice(decoding_bytes, &tcp_buffer[..bytes_read]));
                 },
                 Err(error) if error.kind() == ErrorKind::WouldBlock => break,

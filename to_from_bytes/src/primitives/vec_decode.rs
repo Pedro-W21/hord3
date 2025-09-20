@@ -72,6 +72,7 @@ impl<T:FromBytes> ByteDecoder<Vec<T>> for VecDecoder<T> {
                 bytes.clear();
             }
             if self.counter == 0 {
+                bytes.clear();
                 return Some(Vec::new())
             }
             None

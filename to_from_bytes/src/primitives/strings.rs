@@ -2,10 +2,10 @@ use crate::{ToBytes, ByteDecoder, FromBytes};
 
 impl ToBytes for String {
     fn get_bytes_size(&self) -> usize {
-        4 + self.len()
+        (usize::BITS / 8) as usize + self.len()
     }
     fn add_bytes(&self, bytes:&mut Vec<u8>) {
-        (self.len() as u32).add_bytes(bytes);
+        self.len().add_bytes(bytes);
         for byte in self.as_bytes() {
             bytes.push(*byte)
         }
@@ -14,7 +14,7 @@ impl ToBytes for String {
 #[derive(Clone)]
 pub struct StringDecoder {
     got_len:bool,
-    counter:u32,
+    counter:usize,
     utf_8_counter:u8,
     end_string:String,
 }
@@ -24,7 +24,7 @@ impl FromBytes for String {
     fn get_decoder() -> Self::Decoder {
         StringDecoder {
             got_len:false,
-            counter:4,
+            counter:8,
             end_string:String::new(),
             utf_8_counter:0,
         }
@@ -49,11 +49,12 @@ impl ByteDecoder<String> for StringDecoder {
             self.counter -= 1;
             bytes.push(byte);
             if self.counter == 0 {
-                self.counter = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+                self.counter = usize::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3],bytes[4], bytes[5], bytes[6], bytes[7]]);
                 self.got_len = true;
                 bytes.clear();
             }
             if self.counter == 0 {
+                bytes.clear();
                 Some(String::new())
             }
             else {
