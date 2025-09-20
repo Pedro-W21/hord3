@@ -201,6 +201,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
             HordeMultiplayerPacket::WannaJoin(_) => panic!("Player that has already joined asked again"),
             HordeMultiplayerPacket::ThatsUrPlayerID(_, _) => panic!("Player tried to tell server a player ID"),
             HordeMultiplayerPacket::SendMeEverything => {
+                println!("[Multiplayer server] Sending Everything");
                 let (components, world) = engine.get_all_components_and_world();
                 for (id, component) in components {
                     responses.push(HordeMPServerResponse::BackToSender(HordeMultiplayerPacket::ResetComponent { id, data: component }));
@@ -570,14 +571,18 @@ impl<ME:MultiplayerEngine> HordeClientTcp<ME> {
             HordeMultiplayerPacket::DoYouAgree(_) => panic!("Server sent agree packet, impossible"),
             HordeMultiplayerPacket::PlayerJoined(player) => players.players.write().unwrap().push(player),
             HordeMultiplayerPacket::ResetComponent { id, data } => {
+                println!("[Multiplayer client] receiving component reset event");
                 if !client_ids.contains(&id) {
                     engine.set_component(id, data);
                 }
             },
             HordeMultiplayerPacket::ResetWorld { wd } => {
+                println!("[Multiplayer client] receiving reset world event");
                 engine.set_world(wd);
             },
             HordeMultiplayerPacket::SpreadEvent(evt) => {
+
+                println!("[Multiplayer client] receiving spread event event");
                 if !client_ids.contains(&ME::get_target(&evt)) {
                     engine.apply_event(evt);
                 }
