@@ -53,7 +53,7 @@ impl RenderingBackend for TestRB {
     type RenderingStatusUpdate = usize;
 }
 
-pub fn after_main_tick<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, TestEngineTID>, world_read: &WorldComputeHandler<'a, TestWorld, TestEngineTID>) {
+pub fn after_main_tick<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, TestEngineTID>, world_read: &WorldComputeHandler<'a, TestWorld, TestEngineTID>, extra_data:&usize) {
     println!("TEST AFTER MAIN");
     match turn {
         EntityTurn::ent1 => {
@@ -62,7 +62,7 @@ pub fn after_main_tick<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecR
     }
 }
 
-pub fn compute_tick<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, TestEngineTID>, world_read: &WorldComputeHandler<'a, TestWorld, TestEngineTID>) {
+pub fn compute_tick<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, TestEngineTID>, world_read: &WorldComputeHandler<'a, TestWorld, TestEngineTID>, extra_data:&usize) {
     println!("TEST COMPUTE");
 }
 
@@ -71,5 +71,7 @@ pub fn compute_tick<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead
 #[do_multiplayer]
 pub struct TestEngine {
     ent1:CoolEntity,
-    world:TestWorld
+    world:TestWorld,
+    #[extra_data]
+    extra_data:usize
 }

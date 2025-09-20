@@ -308,7 +308,7 @@ fn create_engine(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed, user_d
                 world_events:std::sync::Arc::new(std::sync::RwLock::new(Vec::with_capacity(128))),
                 all_world_events:std::sync::Arc::new(std::sync::RwLock::new(Vec::with_capacity(128))),
                 general_events_sender:sender,
-                is_server
+                is_server,
             },
             // multiplayer_func
             quote! {
@@ -375,11 +375,11 @@ fn create_engine(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed, user_d
                 }
                 pub struct #engine_reader_ident <'a> {
                     #(#ent_idents:#entity_reader_idents<'a, #total_id_ident>),*,
-                    #world_id:WorldComputeHandler<'a, #world_type, #total_id_ident>
+                    #world_id:WorldComputeHandler<'a, #world_type, #total_id_ident>,
                 }
                 pub struct #engine_writer_ident <'a> {
                     #(#ent_idents:#entity_writer_idents<'a, #total_id_ident>),*,
-                    #world_id:WorldWriteHandler<'a, #world_type, #total_id_ident>
+                    #world_id:WorldWriteHandler<'a, #world_type, #total_id_ident>,
                 }
 
 
@@ -602,11 +602,11 @@ fn create_engine(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed, user_d
                 }
                 pub struct #engine_reader_ident <'a> {
                     #(pub #ent_idents:#entity_reader_idents<'a, #total_id_ident>),*,
-                    pub #world_id:WorldComputeHandler<'a, #world_type, #total_id_ident>
+                    pub #world_id:WorldComputeHandler<'a, #world_type, #total_id_ident>,
                 }
                 pub struct #engine_writer_ident <'a> {
                     #(pub #ent_idents:#entity_writer_idents<'a, #total_id_ident>),*,
-                    pub #world_id:WorldWriteHandler<'a, #world_type, #total_id_ident>
+                    pub #world_id:WorldWriteHandler<'a, #world_type, #total_id_ident>,
                 }
 
 

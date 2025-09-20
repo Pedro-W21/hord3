@@ -12,7 +12,7 @@ pub fn lance_serveur() {
     let world = TestWorld { test: 1};
     let entity_vec = CoolEntityVec::new(1000);
     let vectorinator = Vectorinator::new(Arc::new(RwLock::new(SyncUnsafeHordeFramebuffer::new(HordeWindowDimensions::new(100, 100), HordeColorFormat::ARGB8888))));
-    let engine = TestEngineBase::new(entity_vec, WorldHandler::new(world), Arc::new(vectorinator.clone()), HordeMultiModeChoice::Server { adress: Ipv4Addr::new(127, 0, 0, 1), max_players: 100, tick_tolerance: 10 });
+    let engine = TestEngineBase::new(entity_vec, WorldHandler::new(world), Arc::new(vectorinator.clone()), HordeMultiModeChoice::Server { adress: (Ipv4Addr::new(127, 0, 0, 1), 5678), max_players: 100, tick_tolerance: 10,tickrate:30 }, 1);
     let handler = TestServerTaskTaskHandler::new(engine);
     let queue = HordeTaskQueue::new(vec![HordeTaskSequence::new(vec![
         SequencedTask::StartTask(TestServerTask::Main),
@@ -255,7 +255,7 @@ pub fn client_test(name:String) {
     let framebuf = windowing.get_outside_framebuf();
     let vectorinator = Vectorinator::new(framebuf.clone());
     let (cs, cr) = unbounded();
-    let engine = TestEngineBase::new(entity_vec, WorldHandler::new(world), Arc::new(vectorinator.clone()), HordeMultiModeChoice::Client { adress: Some(Ipv4Addr::new(127, 0, 0, 1)), name:name.clone(), chat:cr });
+    let engine = TestEngineBase::new(entity_vec, WorldHandler::new(world), Arc::new(vectorinator.clone()), HordeMultiModeChoice::Client { adress: Some((Ipv4Addr::new(127, 0, 0, 1), 5678)), name:name.clone(), chat:cr }, 1);
     
     let handler = TestTaskTaskHandler::new(engine, windowing, vectorinator.clone());
     let queue = HordeTaskQueue::new(vec![HordeTaskSequence::new(vec![
