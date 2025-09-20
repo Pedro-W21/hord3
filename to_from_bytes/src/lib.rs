@@ -63,6 +63,7 @@ impl<T:FromBytes<Decoder = BD>, BD:ByteDecoder<T>> ByteDecoderUtilities<T> for B
         while end_of_decode < end_of_slice {
             match self.decode_slice_borrow(bytes, &slice_to_decode[end_of_decode..slice_to_decode.len()]) {
                 Some((decoded, bytes_read)) => {
+                    println!("decoded after {} bytes read", bytes_read);
                     end_of_decode += bytes_read;
                     total_decoded.push(decoded);
                     *self = T::get_decoder();
