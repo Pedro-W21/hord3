@@ -297,7 +297,7 @@ fn create_engine(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed, user_d
                 current_tick_over:std::sync::Arc<AtomicUsize>,
                 world_events:std::sync::Arc<std::sync::RwLock<Vec<<#world_type as World<#total_id_ident>>::WE>>>,
                 all_world_events:std::sync::Arc<std::sync::RwLock<Vec<<#world_type as World<#total_id_ident>>::WE>>>,
-                general_events_sender:Sender<#total_event_ident>,
+                general_events_sender:std::sync::mpmc::Sender<#total_event_ident>,
                 is_server:bool,
             },
             // multiplayer_type_ident
@@ -355,7 +355,7 @@ fn create_engine(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed, user_d
             },
             // multiplayer_creator
             quote! {
-                let (sender, receiver) = unbounded();
+                let (sender, receiver) = std::sync::mpmc::channel();
                 let is_server = match multi_choice.clone() {
                     HordeMultiModeChoice::Client {..} => false,
                     _ => true

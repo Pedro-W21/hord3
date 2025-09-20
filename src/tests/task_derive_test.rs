@@ -1,7 +1,6 @@
-use std::{f32::consts::PI, net::Ipv4Addr, path::PathBuf, str::FromStr, sync::{atomic::{AtomicI32, AtomicU8, AtomicUsize}, Arc, RwLock}, thread, time::{Duration, Instant}};
+use std::{f32::consts::PI, net::Ipv4Addr, path::PathBuf, str::FromStr, sync::{atomic::{AtomicI32, AtomicU8, AtomicUsize}, mpmc::channel, Arc, RwLock}, thread, time::{Duration, Instant}};
 
 use cosmic_text::{Color, Metrics};
-use crossbeam::channel::unbounded;
 use task_derive::HordeTask;
 
 use crate::{defaults::{default_frontends::minifb_frontend::MiniFBWindow, default_rendering::vectorinator::{meshes::{Mesh, MeshID, MeshInstance, MeshLOD, MeshLODS, MeshLODType, MeshTriangles, TrianglePoint}, textures::rgb_to_argb, Vectorinator}, default_ui::simple_ui::{SimpleUI, TextCentering, UIDimensions, UIElement, UIElementBackground, UIElementContent, UIElementID, UIEvent, UIUnit, UIUserAction, UIVector, UserEvent}}, horde::{frontend::{HordeWindowDimensions, SyncUnsafeHordeFramebuffer, WindowingHandler}, game_engine::{multiplayer::HordeMultiModeChoice, world::WorldHandler}, geometry::{rotation::Orientation, vec3d::Vec3Df}, rendering::{camera::Camera, framebuffer::HordeColorFormat}, scheduler::{HordeScheduler, HordeTask, HordeTaskData, HordeTaskHandler, HordeTaskQueue, HordeTaskSequence, IndividualTask, SequencedTask}, sound::{ARWWaves, SoundRequest, WaveIdentification, WavePosition, WaveRequest, WaveSink, Waves, WavesHandler}}};
@@ -69,7 +68,7 @@ pub fn singleplayer_test() {
     let engine = SinglePEngineBase::new(entity_vec, WorldHandler::new(world), Arc::new(vectorinator.clone()), SingleExtraData { tick: Arc::new(AtomicUsize::new(0)), waves_handler:waves_handler.clone()});
     waves_handler.send_gec(engine.clone());
     let mouse = windowing.get_mouse_state();
-    let (mut simpleui, user_events) = SimpleUI::new(20, 20, framebuf.clone(), mouse, unbounded().1);
+    let (mut simpleui, user_events) = SimpleUI::new(20, 20, framebuf.clone(), mouse, channel().1);
     let test_ui_element = UIElement::new(
         UIVector::new(UIUnit::ParentWidthProportion(0.10), UIUnit::ParentHeightProportion(0.10)),
         UIDimensions::Decided(UIVector::new(UIUnit::ParentWidthProportion(0.4), UIUnit::ParentHeightProportion(0.3))),
@@ -254,7 +253,7 @@ pub fn client_test(name:String) {
     let windowing = WindowingHandler::new::<MiniFBWindow>(HordeWindowDimensions::new(720, 480), HordeColorFormat::ARGB8888);
     let framebuf = windowing.get_outside_framebuf();
     let vectorinator = Vectorinator::new(framebuf.clone());
-    let (cs, cr) = unbounded();
+    let (cs, cr) = channel();
     let engine = TestEngineBase::new(entity_vec, WorldHandler::new(world), Arc::new(vectorinator.clone()), HordeMultiModeChoice::Client { adress: Some((Ipv4Addr::new(127, 0, 0, 1), 5678)), name:name.clone(), chat:cr }, 1);
     
     let handler = TestTaskTaskHandler::new(engine, windowing, vectorinator.clone());

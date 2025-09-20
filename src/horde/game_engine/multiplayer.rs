@@ -1,6 +1,5 @@
-use std::{collections::{HashMap, HashSet}, hash::Hash, io::{self, Read, Write}, net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream, ToSocketAddrs}, ops::Mul, sync::{atomic::{AtomicUsize, Ordering}, Arc, RwLock}, time::Duration};
+use std::{collections::{HashMap, HashSet}, hash::Hash, io::{self, Read, Write}, net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream, ToSocketAddrs}, ops::Mul, sync::{atomic::{AtomicUsize, Ordering}, mpmc::{channel, Receiver, Sender}, Arc, RwLock}, time::Duration};
 
-use crossbeam::channel::{unbounded, Receiver, Sender};
 use to_from_bytes::{decode_from_tcp, ByteDecoderUtilities, FromBytes, ToBytes};
 use to_from_bytes_derive::{FromBytes, ToBytes};
 
@@ -94,8 +93,8 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
             local_bytes_to_decode:Vec::with_capacity(1024),
             local_decoder:<HordeMultiplayerPacket<ME> as FromBytes>::get_decoder(),
             events_to_spread,
-            must_apply:unbounded(),
-            must_set:unbounded()
+            must_apply:channel(),
+            must_set:channel()
         }
     }
     fn try_handshake(&mut self) -> Option<(String, usize)> {
@@ -134,7 +133,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
         };
         match extras {
             Some((given_id, new_stream, adress, cool_len)) => {
-                tcp_write.streams.insert(given_id, (Arc::new(RwLock::new(new_stream)), adress, unbounded()));
+                tcp_write.streams.insert(given_id, (Arc::new(RwLock::new(new_stream)), adress, channel()));
                 tcp_write.connected_counter.update_len(tcp_write.streams.len());
             }
             None => ()

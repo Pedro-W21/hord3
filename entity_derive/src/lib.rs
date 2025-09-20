@@ -415,16 +415,16 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
         
         #[derive(Clone)]
         pub struct #gen_vec_tunnels_in<ID:Identify> {
-            #(pub #tunnel_in_components:crossbeam::channel::Receiver<#event_types>),* ,
-            pub new_ents:crossbeam::channel::Receiver<#gen_new_ent_type #new_ent_type_generics>,
+            #(pub #tunnel_in_components:std::sync::mpmc::Receiver<#event_types>),* ,
+            pub new_ents:std::sync::mpmc::Receiver<#gen_new_ent_type #new_ent_type_generics>,
         }
 
         impl<ID:Identify> #gen_vec_tunnels_in<ID> {
             pub fn new() -> (Self, #gen_vec_tunnels_out <ID>) {
                 #(
-                let (#tunnel_out_components, #tunnel_in_components) = crossbeam::channel::unbounded()
+                let (#tunnel_out_components, #tunnel_in_components) = std::sync::mpmc::channel()
                 );* ;
-                let (new_ents_out, new_ents_in) = crossbeam::channel::unbounded();
+                let (new_ents_out, new_ents_in) = std::sync::mpmc::channel();
                 (
                     #gen_vec_tunnels_in {
                         #(#tunnel_in_components),* ,
@@ -440,8 +440,8 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
 
         #[derive(Clone)]
         pub struct #gen_vec_tunnels_out<ID:Identify> {
-            #(pub #tunnel_out_components:crossbeam::channel::Sender<#event_types>),* ,
-            pub new_ents:crossbeam::channel::Sender<#gen_new_ent_type #new_ent_type_generics>,
+            #(pub #tunnel_out_components:std::sync::mpmc::Sender<#event_types>),* ,
+            pub new_ents:std::sync::mpmc::Sender<#gen_new_ent_type #new_ent_type_generics>,
         }
         
         #vec_type

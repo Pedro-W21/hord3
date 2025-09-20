@@ -1,7 +1,6 @@
-use std::{collections::{HashMap, HashSet}, hash::{Hash, RandomState}, path::PathBuf, sync::{atomic::{AtomicBool, AtomicI32, AtomicIsize, AtomicU8, Ordering}, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard}};
+use std::{collections::{HashMap, HashSet}, hash::{Hash, RandomState}, path::PathBuf, sync::{atomic::{AtomicBool, AtomicI32, AtomicIsize, AtomicU8, Ordering}, mpmc::{channel, Receiver, Sender}, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard}};
 
 use cosmic_text::{fontdb::ID, Align, Attrs, Buffer, CacheKeyFlags, Color, Family, FontSystem, Metrics, SwashCache};
-use crossbeam::channel::{unbounded, Receiver, Sender};
 use image::{io::Reader, ImageBuffer, Rgb};
 
 use crate::{defaults::default_rendering::{vectorinator::textures::{argb_to_rgb, rgb_to_argb, rgbu_to_rgbf}, vectorinator_binned::textures::{MipMap, TextureSetID, Textures}}, horde::{frontend::{MouseState, SyncUnsafeHordeFramebuffer}, scheduler::IndividualTask}};
@@ -24,7 +23,7 @@ pub struct SimpleUI<UE:UserEvent> {
 
 impl<UE:UserEvent> SimpleUI<UE> {
     pub fn new(expected_elements:usize, expected_images:usize, framebuf:Arc<RwLock<SyncUnsafeHordeFramebuffer>>, mouse_pos:MouseState, full_updates:Receiver<(usize, usize)>) -> (Self, Receiver<UE>) {
-        let (sender, receiver) = unbounded();
+        let (sender, receiver) = channel();
         (
             Self {
                 elements: Arc::new(RwLock::new(Vec::with_capacity(expected_elements))),
