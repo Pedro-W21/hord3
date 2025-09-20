@@ -99,12 +99,12 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
     }
     fn try_handshake(&mut self) -> Option<(String, usize)> {
 
-        println!("[Multiplayer server] Starting a handshake");
+        //println!("[Multiplayer server] Starting a handshake");
         let mut tcp_write = self.tcp.write().unwrap();
         tcp_write.connected_counter.reset();
         let (result, extras) = match tcp_write.listener.write().unwrap().accept() {
             Ok((mut new_stream, adress)) => {
-                println!("NEW STREAM");
+                //println!("NEW STREAM");
                 new_stream.set_nonblocking(true);
                 let mut decoder = HordeMultiplayerPacket::<ME>::get_decoder();
                 let mut tcp_buffer = Vec::with_capacity(1024);
@@ -123,11 +123,11 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
                 }
                 
                 given_id = self.player_id_generator.fetch_add(1, Ordering::Relaxed);
-                println!("HANDSHOOK {} | GAVE ID {}", decoded_pseudonym, given_id);
+                //println!("HANDSHOOK {} | GAVE ID {}", decoded_pseudonym, given_id);
                 tcp_buffer.clear();
                 HordeMultiplayerPacket::<ME>::ThatsUrPlayerID(given_id, self.tickrate).add_bytes(&mut tcp_buffer);
                 new_stream.write(&tcp_buffer).unwrap();
-                println!("[Multiplayer server] Sent player ID");
+                //println!("[Multiplayer server] Sent player ID");
                 (Some((decoded_pseudonym, given_id)), Some((given_id, new_stream, adress, tcp_write.streams.len())))
             },
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => (None, None),
@@ -144,7 +144,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
         result
     }
     fn decode_events(&mut self, stream:&mut TcpStream) -> Vec<HordeMultiplayerPacket<ME>> {
-        println!("[Multiplayer server] Decoding events");
+        //println!("[Multiplayer server] Decoding events");
         let events = decode_from_tcp::<false, HordeMultiplayerPacket<ME>>(&mut self.local_decoder, stream, &mut self.local_tcp_buffer, &mut self.local_decode_buffer);
         events
     }
@@ -154,7 +154,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
         match &event {
             HordeMultiplayerPacket::Chat { from_player, text } => responses.push(HordeMPServerResponse::ToEveryone(event.clone())),
             HordeMultiplayerPacket::DoYouAgree(global_event) => {
-                println!("[Multiplayer server] got DoYouAgree");
+                //println!("[Multiplayer server] got DoYouAgree");
                 let event_tick = engine.get_tick(global_event);
                 let calculated_event_tick = event_tick.abs_diff(self.time_travel.latest_tick);
                 match engine.get_event_origin(global_event) {
@@ -179,7 +179,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
             },
             HordeMultiplayerPacket::DoYouAgreeComponent(id, component) => {
 
-                println!("[Multiplayer server] got DoYouAgreeComponent");
+                //println!("[Multiplayer server] got DoYouAgreeComponent");
                 if !engine.is_that_component_correct(id, component) {
                     let event_tick = self.time_travel.latest_tick - self.time_travel.history.len();
                     let event_origin_id = id;
@@ -203,13 +203,13 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
             HordeMultiplayerPacket::PlayerJoined(player) => panic!("Server Received PlayerJoined"),
             HordeMultiplayerPacket::ResetComponent { id, data } => {
 
-                println!("[Multiplayer server] got ResetComponent");
+                //println!("[Multiplayer server] got ResetComponent");
                 responses.push(HordeMPServerResponse::ToEveryoneElse(event.clone()));
                 self.must_set.0.send((id.clone(), data.clone()));
             },
             HordeMultiplayerPacket::ResetWorld { wd } => panic!("Server was told to reset world"),
             HordeMultiplayerPacket::SpreadEvent(global_evt) => {
-                println!("[Multiplayer server] got SpreadEvent");
+                //println!("[Multiplayer server] got SpreadEvent");
                 responses.push(HordeMPServerResponse::ToEveryoneElse(event.clone()));
                 self.must_apply.0.send(global_evt.clone());
 
@@ -217,7 +217,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
             HordeMultiplayerPacket::WannaJoin(_) => panic!("Player that has already joined asked again"),
             HordeMultiplayerPacket::ThatsUrPlayerID(_, _) => panic!("Player tried to tell server a player ID"),
             HordeMultiplayerPacket::SendMeEverything => {
-                println!("[Multiplayer server] Sending Everything");
+                //println!("[Multiplayer server] Sending Everything");
                 let (components, world) = engine.get_all_components_and_world();
                 for (id, component) in components {
                     responses.push(HordeMPServerResponse::BackToSender(HordeMultiplayerPacket::ResetComponent { id, data: component }));
@@ -262,7 +262,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
     }
     ///  Multithreadable but made to be Sequential
     pub fn share_must_spread(&mut self) {
-        println!("[Multiplayer server] Share must spread");
+        //println!("[Multiplayer server] Share must spread");
         let mut tcp = self.tcp.read().unwrap();
         while let Ok(global_event) = self.events_to_spread.try_recv() {
             for player in &tcp.connected_players {
@@ -330,7 +330,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
 
     /// Multithreadable
     fn send_packet_to(&self, stream:&mut TcpStream, packet:HordeMultiplayerPacket<ME>) {
-        println!("[Multiplayer server] Sending packet");
+        //println!("[Multiplayer server] Sending packet");
         let mut bytes = Vec::with_capacity(packet.get_bytes_size());
         packet.add_bytes(&mut bytes);
         loop {
