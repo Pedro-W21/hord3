@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet}, hash::Hash, io::{self, Read, Write}, net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream, ToSocketAddrs}, ops::Mul, sync::{atomic::{AtomicUsize, Ordering}, mpmc::{channel, Receiver, Sender}, Arc, RwLock}, time::Duration};
+use std::{collections::{HashMap, HashSet}, hash::Hash, io::{self, ErrorKind, Read, Write}, net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream, ToSocketAddrs}, ops::Mul, sync::{atomic::{AtomicUsize, Ordering}, mpmc::{channel, Receiver, Sender}, Arc, RwLock}, time::Duration};
 
 use to_from_bytes::{decode_from_tcp, ByteDecoderUtilities, FromBytes, ToBytes};
 use to_from_bytes_derive::{FromBytes, ToBytes};
@@ -333,7 +333,18 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
         println!("[Multiplayer server] Sending packet");
         let mut bytes = Vec::with_capacity(packet.get_bytes_size());
         packet.add_bytes(&mut bytes);
-        stream.write_all(&bytes).unwrap();
+        loop {
+            match stream.write_all(&bytes) {
+                Ok(_) => break,
+                Err(error) => if error.kind() == ErrorKind::WouldBlock {
+                    continue;
+                }
+                else {
+                    panic!("writing error {}", error);
+                }
+            }
+        }
+        
     }
 
     /// Sequential, called on its own after streams_share_spread
@@ -587,7 +598,17 @@ impl<ME:MultiplayerEngine> HordeClientTcp<ME> {
         println!("[Multiplayer client] Sending packet");
         let mut bytes = Vec::with_capacity(packet.get_bytes_size());
         packet.add_bytes(&mut bytes);
-        self.stream.write_all(&bytes).unwrap();
+        loop {
+            match self.stream.write_all(&bytes) {
+                Ok(_) => break,
+                Err(error) => if error.kind() == ErrorKind::WouldBlock {
+                    continue;
+                }
+                else {
+                    panic!("writing error {}", error);
+                }
+            }
+        }
     }
     fn get_response_to(&mut self, packet:HordeMultiplayerPacket<ME>, players:&mut HordePlayers<ME::ID>, engine:&mut ME, client_ids:&Vec<ME::ID>) -> Vec<HordeMultiplayerPacket<ME>> {
         println!("[Multiplayer client] getting a response to a packet");
