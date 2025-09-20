@@ -189,6 +189,12 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                     pub event:T,
                 }
 
+                impl<T> #event_type_id<T> {
+                    pub fn new(must_be_synced:bool, event:T) -> Self {
+                        Self {must_be_synced, event}
+                    }
+                }
+
                 #[derive(Clone)]
                 pub struct #gen_vec_type<ID:Identify> {
                     #(pub #arw_components:std::sync::Arc<std::sync::RwLock<Vec<#arw_types>>>),* ,
