@@ -34,7 +34,6 @@ impl FromBytes for String {
 impl ByteDecoder<String> for StringDecoder {
     fn decode_byte(&mut self,bytes:&mut Vec<u8>, byte:u8) -> Option<String> {
         if self.got_len {
-            dbg!(self.counter);
             self.counter -= 1;
             bytes.push(byte);
             if self.counter == 0 {

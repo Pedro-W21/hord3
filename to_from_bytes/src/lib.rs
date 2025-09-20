@@ -76,7 +76,7 @@ impl<T:FromBytes<Decoder = BD>, BD:ByteDecoder<T>> ByteDecoderUtilities<T> for B
     fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(T, usize)> {
         for i in 0..slice_to_decode.len() {
             match self.decode_byte(bytes, slice_to_decode[i]) {
-                Some(decoded) => return Some((decoded, i)),
+                Some(decoded) => return Some((decoded, i + 1)),
                 None => ()
             }
         }
