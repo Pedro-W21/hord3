@@ -89,7 +89,7 @@ pub struct Waves<GE:GameEngine> {
     spatial_audio_queue:VecDeque<WavePlay>,
     left_ear:[f32 ; 3],
     right_ear:[f32 ; 3],
-
+    
 }
 
 #[derive(Clone)]

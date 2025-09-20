@@ -369,6 +369,12 @@ pub struct HordeMultiplayer<ME:MultiplayerEngine> {
 }
 
 impl<ME:MultiplayerEngine> HordeMultiplayer<ME> {
+    pub fn get_tickrate(&self) -> Option<usize> {
+        match &self.mode {
+            HordeMultiplayerMode::Server(server_data) => Some(server_data.tickrate),
+            HordeMultiplayerMode::Client(client_data) => client_data.tickrate
+        }
+    }
     /// Call first as server
     pub fn handshakes_players_events(&mut self, engine:&mut ME) {
         // println!("SERVER : HANDSHAKES");

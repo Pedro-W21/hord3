@@ -292,7 +292,7 @@ fn create_engine(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed, user_d
         (   
             // multiplayer_struct_addon
             quote! {
-                multiplayer:HordeMultiplayer<#engine_reader_writer_ident>,
+                pub multiplayer:HordeMultiplayer<#engine_reader_writer_ident>,
                 tick:std::sync::Arc<AtomicUsize>,
                 current_tick_over:std::sync::Arc<AtomicUsize>,
                 world_events:std::sync::Arc<std::sync::RwLock<Vec<<#world_type as World<#total_id_ident>>::WE>>>,
