@@ -206,7 +206,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
                 for (id, component) in components {
                     responses.push(HordeMPServerResponse::BackToSender(HordeMultiplayerPacket::ResetComponent { id, data: component }));
                 }
-                responses.push(HordeMPServerResponse::BackToSender(HordeMultiplayerPacket::ResetWorld { wd: world }));
+                //responses.push(HordeMPServerResponse::BackToSender(HordeMultiplayerPacket::ResetWorld { wd: world }));
             },
         }
 
