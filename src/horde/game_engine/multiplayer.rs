@@ -333,7 +333,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
         println!("[Multiplayer server] Sending packet");
         let mut bytes = Vec::with_capacity(packet.get_bytes_size());
         packet.add_bytes(&mut bytes);
-        stream.write_all(&bytes);
+        stream.write_all(&bytes).unwrap();
     }
 
     /// Sequential, called on its own after streams_share_spread
