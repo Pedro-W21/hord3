@@ -67,7 +67,9 @@ impl<T:FromBytes> ByteDecoder<Vec<T>> for VecDecoder<T> {
             bytes.push(byte);
             if self.counter == 0 {
                 self.counter = usize::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3],bytes[4], bytes[5], bytes[6], bytes[7]]);
+                dbg!(self.counter);
                 self.elements = Vec::with_capacity(self.counter as usize);
+                
                 self.got_len = true;
                 bytes.clear();
             }
