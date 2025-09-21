@@ -333,9 +333,16 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
         //println!("[Multiplayer server] Sending packet");
         let mut bytes = Vec::with_capacity(packet.get_bytes_size());
         packet.add_bytes(&mut bytes);
+        let mut start = 0;
         loop {
-            match stream.write_all(&bytes) {
-                Ok(_) => break,
+            match stream.write(&bytes[start..]) {
+                Ok(bytes_written) => {
+                    start += bytes_written;
+                    stream.flush().unwrap();
+                    if start == bytes.len() {
+                        break;
+                    }
+                },
                 Err(error) => if error.kind() == ErrorKind::WouldBlock {
                     continue;
                 }
@@ -598,9 +605,16 @@ impl<ME:MultiplayerEngine> HordeClientTcp<ME> {
         println!("[Multiplayer client] Sending packet");
         let mut bytes = Vec::with_capacity(packet.get_bytes_size());
         packet.add_bytes(&mut bytes);
+        let mut start = 0;
         loop {
-            match self.stream.write_all(&bytes) {
-                Ok(_) => break,
+            match self.stream.write(&bytes[start..]) {
+                Ok(bytes_written) => {
+                    start += bytes_written;
+                    self.stream.flush().unwrap();
+                    if start == bytes.len() {
+                        break;
+                    }
+                },
                 Err(error) => if error.kind() == ErrorKind::WouldBlock {
                     continue;
                 }
