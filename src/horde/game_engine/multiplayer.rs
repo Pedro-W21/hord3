@@ -681,7 +681,8 @@ impl<ME:MultiplayerEngine> HordeClientTcp<ME> {
                 self.send_packet(resp);
             }
         }
-        for i in 0..10 {
+        
+        for i in 0..2 {
             let random = engine.generate_random_id(&mut self.id_generator);
             match random {
                 Some(random) => {
