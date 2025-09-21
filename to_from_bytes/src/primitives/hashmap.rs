@@ -33,6 +33,9 @@ impl<K:FromBytes + Eq + Hash, V:FromBytes> ByteDecoder<HashMap<K,V>> for HashMap
         match <VecDecoder<(K,V)> as ByteDecoder<Vec<(K,V)>>>::decode_byte(&mut self.vec,bytes, byte) {
             Some(vec) => {
                 let mut hashmap = HashMap::with_capacity(vec.len());
+                if bytes.len() > 0 {
+                    panic!("bytes leftover");
+                }
                 for (k,v) in vec {
                     hashmap.insert(k, v);
                 }

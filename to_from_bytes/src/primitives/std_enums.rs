@@ -22,9 +22,15 @@ impl<T:FromBytes> ByteDecoder<Option<T>> for Option<T::Decoder> {
     fn decode_byte(&mut self,bytes:&mut Vec<u8>, byte:u8) -> Option<Option<T>> {
         match self {
             Self::None => if byte == 0 {
+                if bytes.len() > 0 {
+                    panic!("bytes leftover");
+                }
                 return Some(None);
             }
             else {
+                if bytes.len() > 0 {
+                    panic!("bytes leftover");
+                }
                 *self = Some(T::get_decoder());
             },
             Self::Some(decoder) => {
