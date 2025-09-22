@@ -66,6 +66,9 @@ impl<T:FromBytes<Decoder = BD>, BD:ByteDecoder<T>> ByteDecoderUtilities<T> for B
                     end_of_decode += bytes_read;
                     total_decoded.push(decoded);
                     *self = T::get_decoder();
+                    if bytes.len() > 0 {
+                        panic!("Someone didn't flush bytes ! {}", bytes.len());
+                    }
                 },
                 None => end_of_decode = slice_to_decode.len()
             }
