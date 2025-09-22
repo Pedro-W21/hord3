@@ -213,9 +213,6 @@ impl ToBytes for u16 {
 
 impl ByteDecoder<u8> for IntegerDecoder {
     fn decode_byte(&mut self,bytes:&mut Vec<u8>, byte:u8) -> Option<u8> {
-        if bytes.len() > 0 {
-            panic!("bytes leftover");
-        }
         Some(u8::from_le_bytes([byte]))
     }
 }
@@ -369,9 +366,6 @@ impl ToBytes for i16 {
 
 impl ByteDecoder<i8> for IntegerDecoder {
     fn decode_byte(&mut self,bytes:&mut Vec<u8>, byte:u8) -> Option<i8> {
-        if bytes.len() > 0 {
-            panic!("bytes leftover");
-        }
         Some(i8::from_le_bytes([byte]))
     }
 }

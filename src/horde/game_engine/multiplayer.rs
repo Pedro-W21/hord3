@@ -336,14 +336,11 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
         let mut bytes = Vec::with_capacity(packet.get_bytes_size());
         packet.add_bytes(&mut bytes);
         assert_eq!(bytes.len(), bytes.capacity());
-        println!("[Multiplayer server] SENDING {:?}", bytes.clone());
+        //println!("[Multiplayer server] SENDING {:?}", bytes.clone());
         let mut start = 0;
         loop {
             match stream.write(&bytes[start..]) {
                 Ok(bytes_written) => {
-                    if bytes_written == 0 {
-                        panic!("Wrote 0 bytes {}", bytes.len());
-                    }
                     start += bytes_written;
                     stream.flush().unwrap();
                     if start == bytes.len() {
@@ -609,18 +606,15 @@ impl<ME:MultiplayerEngine> HordeClientTcp<ME> {
         events
     }
     fn send_packet(&mut self, packet:HordeMultiplayerPacket<ME>) {
-        println!("[Multiplayer client] Sending packet");
+        //println!("[Multiplayer client] Sending packet");
         let mut bytes = Vec::with_capacity(packet.get_bytes_size());
         packet.add_bytes(&mut bytes);
         assert_eq!(bytes.len(), bytes.capacity());
-        println!("[Multiplayer client] SENDING {:?}", bytes.clone());
+        //println!("[Multiplayer client] SENDING {:?}", bytes.clone());
         let mut start = 0;
         loop {
             match self.stream.write(&bytes[start..]) {
                 Ok(bytes_written) => {
-                    if bytes_written == 0 {
-                        panic!("Wrote 0 bytes {}", bytes.len());
-                    }
                     start += bytes_written;
                     self.stream.flush().unwrap();
                     if start == bytes.len() {
@@ -637,25 +631,25 @@ impl<ME:MultiplayerEngine> HordeClientTcp<ME> {
         }
     }
     fn get_response_to(&mut self, packet:HordeMultiplayerPacket<ME>, players:&mut HordePlayers<ME::ID>, engine:&mut ME, client_ids:&Vec<ME::ID>) -> Vec<HordeMultiplayerPacket<ME>> {
-        println!("[Multiplayer client] getting a response to a packet");
+        //println!("[Multiplayer client] getting a response to a packet");
         let mut response = Vec::with_capacity(4);
         match packet {
             HordeMultiplayerPacket::Chat { from_player, text } => println!("{} : {}", from_player, text),
             HordeMultiplayerPacket::DoYouAgree(_) => panic!("Server sent agree packet, impossible"),
             HordeMultiplayerPacket::PlayerJoined(player) => players.players.write().unwrap().push(player),
             HordeMultiplayerPacket::ResetComponent { id, data } => {
-                println!("[Multiplayer client] receiving component reset event");
+                //println!("[Multiplayer client] receiving component reset event");
                 if !client_ids.contains(&id) {
                     engine.set_component(id, data);
                 }
             },
             HordeMultiplayerPacket::ResetWorld { wd } => {
-                println!("[Multiplayer client] receiving reset world event");
+                //println!("[Multiplayer client] receiving reset world event");
                 engine.set_world(wd);
             },
             HordeMultiplayerPacket::SpreadEvent(evt) => {
 
-                println!("[Multiplayer client] receiving spread event event");
+                //println!("[Multiplayer client] receiving spread event event");
                 if !client_ids.contains(&ME::get_target(&evt)) {
                     engine.apply_event(evt);
                 }

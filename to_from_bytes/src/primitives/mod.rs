@@ -28,15 +28,9 @@ pub struct BoolDecoder {
 impl ByteDecoder<bool> for BoolDecoder {
     fn decode_byte(&mut self,bytes:&mut Vec<u8>, byte:u8) -> Option<bool> {
         if byte == 1 {
-            if bytes.len() > 0 {
-                panic!("bytes leftover");
-            }
             Some(true)
         }
         else {
-            if bytes.len() > 0 {
-                panic!("bytes leftover");
-            }
             Some(false)
         }
     }

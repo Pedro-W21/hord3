@@ -66,9 +66,6 @@ impl<T:FromBytes<Decoder = BD>, BD:ByteDecoder<T>> ByteDecoderUtilities<T> for B
                     end_of_decode += bytes_read;
                     total_decoded.push(decoded);
                     *self = T::get_decoder();
-                    if bytes.len() > 0 {
-                        panic!("Someone didn't flush bytes ! {}", bytes.len());
-                    }
                 },
                 None => end_of_decode = slice_to_decode.len()
             }
@@ -185,7 +182,7 @@ pub fn decode_from_tcp<const BLOCKING:bool, T:FromBytes + ToBytes>(decoder:&mut 
         loop {
             match tcp.read(tcp_buffer) {
                 Ok(bytes_read) => {
-                    println!("Read {:?}", &tcp_buffer[..bytes_read]);
+                    // println!("Read {:?}", &tcp_buffer[..bytes_read]);
                     all_decoded.append(&mut decoder.decode_multiple_from_slice(decoding_bytes, &tcp_buffer[..bytes_read]));
                 },
                 Err(error) if error.kind() == ErrorKind::WouldBlock => break,
