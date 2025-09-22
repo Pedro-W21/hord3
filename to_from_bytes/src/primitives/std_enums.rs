@@ -35,7 +35,12 @@ impl<T:FromBytes> ByteDecoder<Option<T>> for Option<T::Decoder> {
             },
             Self::Some(decoder) => {
                 match decoder.decode_byte(bytes, byte) {
-                    Some(decoded) => return Some(Some(decoded)),
+                    Some(decoded) => {
+                        if bytes.len() > 0 {
+                            panic!("bytes leftover");
+                        }
+                        return Some(Some(decoded))
+                    },
                     None => (),
                 }
             }
