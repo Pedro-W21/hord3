@@ -339,6 +339,9 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
         loop {
             match stream.write(&bytes[start..]) {
                 Ok(bytes_written) => {
+                    if bytes_written == 0 {
+                        panic!("Wrote 0 bytes {}", bytes.len());
+                    }
                     start += bytes_written;
                     stream.flush().unwrap();
                     if start == bytes.len() {
@@ -613,6 +616,9 @@ impl<ME:MultiplayerEngine> HordeClientTcp<ME> {
         loop {
             match self.stream.write(&bytes[start..]) {
                 Ok(bytes_written) => {
+                    if bytes_written == 0 {
+                        panic!("Wrote 0 bytes {}", bytes.len());
+                    }
                     start += bytes_written;
                     self.stream.flush().unwrap();
                     if start == bytes.len() {
