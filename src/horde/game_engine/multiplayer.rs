@@ -333,6 +333,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
         //println!("[Multiplayer server] Sending packet");
         let mut bytes = Vec::with_capacity(packet.get_bytes_size());
         packet.add_bytes(&mut bytes);
+        println!("[Multiplayer server] SENDING {:?}", bytes.clone());
         let mut start = 0;
         loop {
             match stream.write(&bytes[start..]) {
@@ -605,6 +606,7 @@ impl<ME:MultiplayerEngine> HordeClientTcp<ME> {
         println!("[Multiplayer client] Sending packet");
         let mut bytes = Vec::with_capacity(packet.get_bytes_size());
         packet.add_bytes(&mut bytes);
+        println!("[Multiplayer client] SENDING {:?}", bytes.clone());
         let mut start = 0;
         loop {
             match self.stream.write(&bytes[start..]) {
