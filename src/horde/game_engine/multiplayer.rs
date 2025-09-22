@@ -56,19 +56,23 @@ pub struct HordeServerData<ME:MultiplayerEngine> {
     tickrate:usize,
     player_id_generator:Arc<AtomicUsize>,
     tcp:Arc<RwLock<HordeTcpServerData<ME>>>,
-    local_tcp_buffer:Vec<u8>,
-    local_bytes_to_decode:Vec<u8>,
-    local_decode_buffer:Vec<u8>,
-    local_decoder:<HordeMultiplayerPacket<ME> as FromBytes>::Decoder,
     events_to_spread:Receiver<ME::GE>,
     must_apply:(Sender<ME::GE>, Receiver<ME::GE>),
     must_set:(Sender<(ME::ID, <ME::GE as GlobalEvent>::GC)>, Receiver<(ME::ID, <ME::GE as GlobalEvent>::GC)>)
 
 }
+
+struct TcpStreamHandler<ME:MultiplayerEngine> {
+    stream:TcpStream,
+    local_tcp_buffer:Vec<u8>,
+    local_decode_buffer:Vec<u8>,
+    local_decoder:<HordeMultiplayerPacket<ME> as FromBytes>::Decoder
+}
+
 #[derive(Clone)]
 pub struct HordeTcpServerData<ME:MultiplayerEngine> {
     listener:Arc<RwLock<TcpListener>>,
-    streams:HashMap<usize, (Arc<RwLock<TcpStream>>, SocketAddr, (Sender<HordeMultiplayerPacket<ME>>, Receiver<HordeMultiplayerPacket<ME>>))>,
+    streams:HashMap<usize, (Arc<RwLock<TcpStreamHandler<ME>>>, SocketAddr, (Sender<HordeMultiplayerPacket<ME>>, Receiver<HordeMultiplayerPacket<ME>>))>,
     connected_players:Vec<usize>,
     connected_counter:ParallelCounter,
 }
@@ -88,10 +92,6 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
             tickrate,
             tcp:Arc::new(RwLock::new(HordeTcpServerData::new(adress))),
             player_id_generator:Arc::new(AtomicUsize::new(0)),
-            local_tcp_buffer:vec![0; 1024],
-            local_decode_buffer:Vec::with_capacity(1024),
-            local_bytes_to_decode:Vec::with_capacity(1024),
-            local_decoder:<HordeMultiplayerPacket<ME> as FromBytes>::get_decoder(),
             events_to_spread,
             must_apply:channel(),
             must_set:channel()
@@ -107,12 +107,14 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
                 //println!("NEW STREAM");
                 new_stream.set_nonblocking(true);
                 let mut decoder = HordeMultiplayerPacket::<ME>::get_decoder();
-                let mut tcp_buffer = Vec::with_capacity(1024);
                 let mut got_first_response = false;
                 let mut decoded_pseudonym = String::new();
                 let mut given_id = 0;
+                let mut decoder = <HordeMultiplayerPacket<ME> as FromBytes>::get_decoder();
+                let mut tcp_buffer = vec![0 ; 1024];
+                let mut decode_buffer = Vec::with_capacity(1024);
                 while !got_first_response {
-                    let events = decode_from_tcp::<false, HordeMultiplayerPacket<ME>>(&mut self.local_decoder, &mut new_stream, &mut self.local_tcp_buffer, &mut self.local_decode_buffer);
+                    let events = decode_from_tcp::<false, HordeMultiplayerPacket<ME>>(&mut decoder, &mut new_stream, &mut tcp_buffer, &mut decode_buffer);
                     for event in events {
                         match event {
                             HordeMultiplayerPacket::WannaJoin(player_name) => {decoded_pseudonym = player_name.clone(); got_first_response = true;}
@@ -128,14 +130,14 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
                 HordeMultiplayerPacket::<ME>::ThatsUrPlayerID(given_id, self.tickrate).add_bytes(&mut tcp_buffer);
                 new_stream.write(&tcp_buffer).unwrap();
                 //println!("[Multiplayer server] Sent player ID");
-                (Some((decoded_pseudonym, given_id)), Some((given_id, new_stream, adress, tcp_write.streams.len())))
+                (Some((decoded_pseudonym, given_id)), Some((given_id, new_stream, adress, tcp_write.streams.len(), decoder, tcp_buffer, decode_buffer)))
             },
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => (None, None),
             Err(bad_error) => panic!("Bad TCP listening error : {}", bad_error), 
         };
         match extras {
-            Some((given_id, new_stream, adress, cool_len)) => {
-                tcp_write.streams.insert(given_id, (Arc::new(RwLock::new(new_stream)), adress, channel()));
+            Some((given_id, new_stream, adress, cool_len, decoder, tcp_buffer, decode_buffer)) => {
+                tcp_write.streams.insert(given_id, (Arc::new(RwLock::new(TcpStreamHandler { stream:  new_stream, local_tcp_buffer: tcp_buffer, local_decode_buffer: decode_buffer, local_decoder: decoder })), adress, channel()));
                 tcp_write.connected_counter.update_len(tcp_write.streams.len());
             }
             None => ()
@@ -143,9 +145,9 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
 
         result
     }
-    fn decode_events(&mut self, stream:&mut TcpStream) -> Vec<HordeMultiplayerPacket<ME>> {
+    fn decode_events(&mut self, stream:&mut TcpStreamHandler<ME>) -> Vec<HordeMultiplayerPacket<ME>> {
         //println!("[Multiplayer server] Decoding events");
-        let events = decode_from_tcp::<false, HordeMultiplayerPacket<ME>>(&mut self.local_decoder, stream, &mut self.local_tcp_buffer, &mut self.local_decode_buffer);
+        let events = decode_from_tcp::<false, HordeMultiplayerPacket<ME>>(&mut stream.local_decoder, &mut stream.stream, &mut stream.local_tcp_buffer, &mut stream.local_decode_buffer);
         events
     }
     fn get_response_to_event(&mut self, event:HordeMultiplayerPacket<ME>, engine:&ME) -> Vec<HordeMPServerResponse<ME>> {
@@ -305,7 +307,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
                 for response in responses {
                     match response {
                         HordeMPServerResponse::BackToSender(rep) => {
-                            self.send_packet_to(&mut stream_write, rep);
+                            self.send_packet_to(&mut stream_write.stream, rep);
                         },
                         HordeMPServerResponse::ToEveryone(rep) => {
                             let tcp_read = self.tcp.read().unwrap();
@@ -387,7 +389,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
             };
             let mut stream_write = stream.write().unwrap();
             while let Ok(packet) = recv.try_recv() {
-                self.send_packet_to(&mut stream_write, packet);
+                self.send_packet_to(&mut stream_write.stream, packet);
             }
         }
     }
