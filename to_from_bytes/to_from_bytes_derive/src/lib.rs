@@ -213,6 +213,7 @@ pub fn decodebytes_macro_derive(input: TokenStream) -> TokenStream {
 
 fn decodebytes_named_struct(ast: &syn::DeriveInput, fields_struct:&FieldsNamed) -> TokenStream {
     let name = &ast.ident;
+    let name_str = name.to_string();
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let mut attrs_names = Vec::new();
     let mut decode_field_idents = Vec::new();
@@ -288,6 +289,7 @@ fn decodebytes_named_struct(ast: &syn::DeriveInput, fields_struct:&FieldsNamed) 
                 
             }
             fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(#name #ty_generics, usize)> {
+                println!("Entering {} slice decode and the len is {}", #name_str, slice_to_decode.len());
                 let mut i = 0;
                 while self.counter < #last_count && i < slice_to_decode.len() {
                     match self.counter {
@@ -336,6 +338,7 @@ fn decodebytes_named_struct(ast: &syn::DeriveInput, fields_struct:&FieldsNamed) 
 
 fn decodebytes_unnamed_struct(ast: &syn::DeriveInput, fields_struct:&FieldsUnnamed) -> TokenStream {
     let name = &ast.ident;
+    let name_str = name.to_string();
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let mut attrs_names = Vec::new();
     let mut decode_field_idents = Vec::new();
@@ -411,6 +414,8 @@ fn decodebytes_unnamed_struct(ast: &syn::DeriveInput, fields_struct:&FieldsUnnam
                 
             }
             fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(#name #ty_generics, usize)> {
+
+                println!("Entering {} slice decode and the len is {}", #name_str, slice_to_decode.len());
                 let mut i = 0;
                 while self.counter < #last_count && i < slice_to_decode.len() {
                     match self.counter {
@@ -474,6 +479,8 @@ fn impl_decodebytes_enum(ast:&syn::DeriveInput, dataenum:&DataEnum) -> TokenStre
     let decoder_ident = Ident::new(format!("{}Decoder", name.to_string()).trim(), Span::call_site());
 
     let decoder_enum_ident = Ident::new(format!("{}DecoderEnum", name.to_string()).trim(), Span::call_site());
+
+    let name_str = name.to_string();
 
     let mut unit_decodes = Vec::new();
 
@@ -578,6 +585,7 @@ fn impl_decodebytes_enum(ast:&syn::DeriveInput, dataenum:&DataEnum) -> TokenStre
                 }
             }
             fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(#name #ty_generics, usize)> {
+                println!("Entering {} slice decode and the len is {}", #name_str, slice_to_decode.len());
                 match &mut self.decoder_enum {
                     #(#slice_decode_variants),*,
                     MissingVariant => {
