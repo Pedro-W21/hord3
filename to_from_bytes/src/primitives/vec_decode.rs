@@ -80,7 +80,7 @@ impl<T:FromBytes> ByteDecoder<Vec<T>> for VecDecoder<T> {
             None
         }
     }
-    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(Vec<T>, usize)> {
+    /*fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(Vec<T>, usize)> {
         if self.got_len {
             let mut i = 0;
             while i < slice_to_decode.len() {
@@ -133,5 +133,5 @@ impl<T:FromBytes> ByteDecoder<Vec<T>> for VecDecoder<T> {
             }
             None
         }
-    }
+    }*/
 }
