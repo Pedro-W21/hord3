@@ -54,7 +54,7 @@ impl<T:FromBytes> ByteDecoder<Option<T>> for Option<T::Decoder> {
                         Some((decoded, bytes_read)) => {
                             Some((Some(decoded), bytes_read))
                         },
-                        None => None,
+                        None => return None,
                     }
                 }
             };
