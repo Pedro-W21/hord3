@@ -415,7 +415,7 @@ fn decodebytes_unnamed_struct(ast: &syn::DeriveInput, fields_struct:&FieldsUnnam
             }
             fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(#name #ty_generics, usize)> {
 
-                println!("Entering {} slice decode and the len is {}", #name_str, slice_to_decode.len());
+                //println!("Entering {} slice decode and the len is {}", #name_str, slice_to_decode.len());
                 let mut i = 0;
                 while self.counter < #last_count && i < slice_to_decode.len() {
                     match self.counter {
@@ -585,7 +585,7 @@ fn impl_decodebytes_enum(ast:&syn::DeriveInput, dataenum:&DataEnum) -> TokenStre
                 }
             }
             fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(#name #ty_generics, usize)> {
-                println!("Entering {} slice decode and the len is {}", #name_str, slice_to_decode.len());
+                //println!("Entering {} slice decode and the len is {}", #name_str, slice_to_decode.len());
                 match &mut self.decoder_enum {
                     #(#slice_decode_variants),*,
                     MissingVariant => {

@@ -111,7 +111,7 @@ impl<ME:MultiplayerEngine> HordeServerData<ME> {
                 let mut decoded_pseudonym = String::new();
                 let mut given_id = 0;
                 let mut decoder = <HordeMultiplayerPacket<ME> as FromBytes>::get_decoder();
-                let mut tcp_buffer = vec![0 ; 1024];
+                let mut tcp_buffer = vec![0 ; 4096];
                 let mut decode_buffer = Vec::with_capacity(1024);
                 while !got_first_response {
                     let events = decode_from_tcp::<false, HordeMultiplayerPacket<ME>>(&mut decoder, &mut new_stream, &mut tcp_buffer, &mut decode_buffer);
@@ -597,7 +597,7 @@ impl<ME:MultiplayerEngine> HordeClientTcp<ME> {
         HordeMultiplayerPacket::<ME>::SendMeEverything.add_bytes(&mut buffer);
         stream.write(&mut buffer);
         println!("[Multiplayer client] Sent everything request");
-        (Self {id_generator:ME::get_random_id_generator(),stream, adress, local_tcp_buffer:vec![0 ; 1024], local_decode_buffer:Vec::with_capacity(1024), local_decoder:HordeMultiplayerPacket::<ME>::get_decoder()}, id, tickrate)
+        (Self {id_generator:ME::get_random_id_generator(),stream, adress, local_tcp_buffer:vec![0 ; 4096], local_decode_buffer:Vec::with_capacity(1024), local_decoder:HordeMultiplayerPacket::<ME>::get_decoder()}, id, tickrate)
     }
     fn decode_events(&mut self) -> Vec<HordeMultiplayerPacket<ME>> {
 
