@@ -289,7 +289,7 @@ fn decodebytes_named_struct(ast: &syn::DeriveInput, fields_struct:&FieldsNamed) 
                 
             }
             fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(#name #ty_generics, usize)> {
-                println!("Entering {} slice decode and the len is {}", #name_str, slice_to_decode.len());
+                // println!("Entering {} slice decode and the len is {}", #name_str, slice_to_decode.len());
                 let mut i = 0;
                 while self.counter < #last_count && i < slice_to_decode.len() {
                     match self.counter {
