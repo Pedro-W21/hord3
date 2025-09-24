@@ -1,4 +1,4 @@
-use crate::{ToBytes, ByteDecoder, FromBytes};
+use crate::{primitives::vec_decode::VecDecoder, ByteDecoder, FromBytes, ToBytes};
 
 impl ToBytes for String {
     fn get_bytes_size(&self) -> usize {
@@ -13,109 +13,33 @@ impl ToBytes for String {
 }
 #[derive(Clone)]
 pub struct StringDecoder {
-    got_len:bool,
-    counter:usize,
-    utf_8_counter:u8,
-    end_string:String,
+    vec:VecDecoder<u8>
 }
 
 impl FromBytes for String {
     type Decoder = StringDecoder;
     fn get_decoder() -> Self::Decoder {
         StringDecoder {
-            got_len:false,
-            counter:8,
-            end_string:String::new(),
-            utf_8_counter:0,
+            vec:Vec::get_decoder()
         }
     }
 }
 
 impl ByteDecoder<String> for StringDecoder {
     fn decode_byte(&mut self,bytes:&mut Vec<u8>, byte:u8) -> Option<String> {
-        if self.got_len {
-            self.counter -= 1;
-            bytes.push(byte);
-            if self.counter == 0 {
-                let string_out = String::from_utf8(bytes.clone()).unwrap();
-                bytes.clear();
-                Some(string_out)
-            }
-            else {
-                None
-            }
-        }
-        else {
-            self.counter -= 1;
-            bytes.push(byte);
-            if self.counter == 0 {
-                self.counter = usize::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3],bytes[4], bytes[5], bytes[6], bytes[7]]);
-                self.got_len = true;
-                bytes.clear();
-            }
-            if self.counter == 0 {
-                bytes.clear();
-                Some(String::new())
-            }
-            else {
-                None
-            }
-            
+        match <VecDecoder<u8> as ByteDecoder<Vec<u8>>>::decode_byte(&mut self.vec,bytes, byte) {
+            Some(vec) => {
+                Some(String::from_utf8(vec).unwrap())
+            },
+            None => None
         }
     }
     fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(String, usize)> {
-        if self.got_len {
-            for i in 0..slice_to_decode.len() {
-                let byte = slice_to_decode[i];
-                let out = {
-                    self.counter -= 1;
-                    bytes.push(byte);
-                    if self.counter == 0 {
-                        let string_out = String::from_utf8(bytes.clone()).unwrap();
-                        bytes.clear();
-                        Some(string_out)
-                    }
-                    else {
-                        None
-                    }
-                };
-                match out {
-                    Some(out) => return Some((out, i + 1)),
-                    None => ()
-                }
-            }
-            None
-        }
-        else {
-            for i in 0..slice_to_decode.len() {
-                let byte = slice_to_decode[i];
-                let out = {
-                    self.counter -= 1;
-                    bytes.push(byte);
-                    if self.counter == 0 {
-                        self.counter = usize::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3],bytes[4], bytes[5], bytes[6], bytes[7]]);
-                        self.got_len = true;
-                        bytes.clear();
-                    }
-                    if self.counter == 0 {
-                        bytes.clear();
-                        Some(String::new())
-                    }
-                    else {
-                        None
-                    }
-                };
-                match out {
-                    Some(out) => return Some((out, i + 1)),
-                    None => if self.got_len {
-                        match self.decode_slice_borrow(bytes, &slice_to_decode[(i+1)..]) {
-                            Some((decoded, bytes_read)) => return Some((decoded, bytes_read + i + 1)),
-                            None => return None
-                        }
-                    }
-                }
-            }
-            None
+        match <VecDecoder<u8> as ByteDecoder<Vec<u8>>>::decode_slice_borrow(&mut self.vec,bytes, slice_to_decode) {
+            Some((vec, bytes_read)) => {
+                Some((String::from_utf8(vec).unwrap(), bytes_read))
+            },
+            None => None
         }
     }
 }
