@@ -597,7 +597,10 @@ fn impl_decodebytes_enum(ast:&syn::DeriveInput, dataenum:&DataEnum) -> TokenStre
                             }
                             else {
                                 self.decoder_enum = enum_decoder;
-                                self.decode_slice_borrow(bytes, &slice_to_decode[1..])
+                                match self.decode_slice_borrow(bytes, &slice_to_decode[1..]) {
+                                    Some((val, bytes_read)) => Some((val, bytes_read + 1)),
+                                    None => None
+                                }
                             }
                         }
                         else {
