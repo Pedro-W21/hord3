@@ -69,7 +69,7 @@ impl<T:FromBytes<Decoder = BD>, BD:ByteDecoder<T>> ByteDecoderUtilities<T> for B
         let mut total_decoded = Vec::with_capacity(2);
         let mut end_of_decode = 0;
         while end_of_decode < slice_to_decode.len() {
-            match self.decode_slice_borrow(bytes, &slice_to_decode[end_of_decode..slice_to_decode.len()]) {
+            match self.decode_slice_borrow(bytes, &slice_to_decode[end_of_decode..]) {
                 Some((decoded, bytes_read)) => {
                     //println!("decoded after {} bytes read", bytes_read);
                     end_of_decode += bytes_read;
@@ -183,7 +183,7 @@ pub fn decode_from_tcp<const BLOCKING:bool, T:FromBytes + ToBytes>(decoder:&mut 
         loop {
             match tcp.read(tcp_buffer) {
                 Ok(bytes_read) => {
-                    // println!("Read {:?}", &tcp_buffer[..bytes_read]);
+                    println!("Read {:?}", &tcp_buffer[..bytes_read]);
                     all_decoded.append(&mut decoder.decode_multiple_from_slice(decoding_bytes, &tcp_buffer[..bytes_read]));
                 },
                 Err(error) if error.kind() == ErrorKind::WouldBlock => break,
