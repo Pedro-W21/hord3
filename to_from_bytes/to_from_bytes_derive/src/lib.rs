@@ -581,14 +581,19 @@ fn impl_decodebytes_enum(ast:&syn::DeriveInput, dataenum:&DataEnum) -> TokenStre
                 match &mut self.decoder_enum {
                     #(#slice_decode_variants),*,
                     MissingVariant => {
-                        let byte = slice_to_decode[0];
-                        let (enum_decoder, is_unit)= #decoder_enum_ident::from_variant_number(byte);
-                        if is_unit {
-                            Some((enum_decoder.unit_to_decoded(), 1))
+                        if slice_to_decode.len() > 0 {
+                            let byte = slice_to_decode[0];
+                            let (enum_decoder, is_unit)= #decoder_enum_ident::from_variant_number(byte);
+                            if is_unit {
+                                Some((enum_decoder.unit_to_decoded(), 1))
+                            }
+                            else {
+                                self.decoder_enum = enum_decoder;
+                                self.decode_slice_borrow(bytes, &slice_to_decode[1..])
+                            }
                         }
                         else {
-                            self.decoder_enum = enum_decoder;
-                            self.decode_slice_borrow(bytes, &slice_to_decode[1..])
+                            None
                         }
                     },
                 }
