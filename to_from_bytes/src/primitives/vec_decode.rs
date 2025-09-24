@@ -88,6 +88,7 @@ impl<T:FromBytes> ByteDecoder<Vec<T>> for VecDecoder<T> {
                     Some((decoded, bytes_read)) => {
                         self.counter -= 1;
                         self.elements.push(decoded);
+                        self.element_decoder = T::get_decoder();
                         bytes.clear();
                         if self.counter == 0 {
                             return Some((self.elements.clone(), i + bytes_read))
