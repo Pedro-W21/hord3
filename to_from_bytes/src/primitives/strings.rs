@@ -63,4 +63,59 @@ impl ByteDecoder<String> for StringDecoder {
             
         }
     }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(String, usize)> {
+        if self.got_len {
+            for i in 0..slice_to_decode.len() {
+                let byte = slice_to_decode[i];
+                let out = {
+                    self.counter -= 1;
+                    bytes.push(byte);
+                    if self.counter == 0 {
+                        let string_out = String::from_utf8(bytes.clone()).unwrap();
+                        bytes.clear();
+                        Some(string_out)
+                    }
+                    else {
+                        None
+                    }
+                };
+                match out {
+                    Some(out) => return Some((out, i + 1)),
+                    None => ()
+                }
+            }
+            None
+        }
+        else {
+            for i in 0..slice_to_decode.len() {
+                let byte = slice_to_decode[i];
+                let out = {
+                    self.counter -= 1;
+                    bytes.push(byte);
+                    if self.counter == 0 {
+                        self.counter = usize::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3],bytes[4], bytes[5], bytes[6], bytes[7]]);
+                        self.got_len = true;
+                        bytes.clear();
+                    }
+                    if self.counter == 0 {
+                        bytes.clear();
+                        Some(String::new())
+                    }
+                    else {
+                        None
+                    }
+                };
+                match out {
+                    Some(out) => return Some((out, i + 1)),
+                    None => if self.got_len {
+                        match self.decode_slice_borrow(bytes, &slice_to_decode[(i+1)..]) {
+                            Some((decoded, bytes_read)) => return Some((decoded, bytes_read + i + 1)),
+                            None => return None
+                        }
+                    }
+                }
+            }
+            None
+        }
+    }
 }

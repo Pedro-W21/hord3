@@ -24,6 +24,24 @@ impl ByteDecoder<usize> for IntegerDecoder {
             None
         }
     }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(usize, usize)> {
+        if bytes.len() == 0 && slice_to_decode.len() >= 8 {
+            Some((usize::from_le_bytes([slice_to_decode[0], slice_to_decode[1], slice_to_decode[2], slice_to_decode[3], slice_to_decode[4], slice_to_decode[5], slice_to_decode[6], slice_to_decode[7]]), 8))
+        }
+        else {
+            for i in 0..slice_to_decode.len() {
+                bytes.push(slice_to_decode[i]);
+                self.counter -= 1;
+
+                if self.counter == 0 {
+                    let val = usize::from_le_bytes([bytes[0],bytes[1],bytes[2],bytes[3], bytes[4],bytes[5],bytes[6],bytes[7]]);
+                    bytes.clear();
+                    return Some((val, i + 1))
+                }
+            }
+            None
+        }
+    }
 }
 
 impl FromBytes for usize {
@@ -63,6 +81,24 @@ impl ByteDecoder<isize> for IntegerDecoder {
             None
         }
     }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(isize, usize)> {
+        if bytes.len() == 0 && slice_to_decode.len() >= 8 {
+            Some((isize::from_le_bytes([slice_to_decode[0], slice_to_decode[1], slice_to_decode[2], slice_to_decode[3], slice_to_decode[4], slice_to_decode[5], slice_to_decode[6], slice_to_decode[7]]), 8))
+        }
+        else {
+            for i in 0..slice_to_decode.len() {
+                bytes.push(slice_to_decode[i]);
+                self.counter -= 1;
+
+                if self.counter == 0 {
+                    let val = isize::from_le_bytes([bytes[0],bytes[1],bytes[2],bytes[3], bytes[4],bytes[5],bytes[6],bytes[7]]);
+                    bytes.clear();
+                    return Some((val, i + 1))
+                }
+            }
+            None
+        }
+    }
 }
 
 impl FromBytes for isize {
@@ -99,6 +135,24 @@ impl ByteDecoder<u64> for IntegerDecoder {
             Some(u64::from_le_bytes(bytes_out))
         }
         else {
+            None
+        }
+    }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(u64, usize)> {
+        if bytes.len() == 0 && slice_to_decode.len() >= 8 {
+            Some((u64::from_le_bytes([slice_to_decode[0], slice_to_decode[1], slice_to_decode[2], slice_to_decode[3], slice_to_decode[4], slice_to_decode[5], slice_to_decode[6], slice_to_decode[7]]), 8))
+        }
+        else {
+            for i in 0..slice_to_decode.len() {
+                bytes.push(slice_to_decode[i]);
+                self.counter -= 1;
+
+                if self.counter == 0 {
+                    let val = u64::from_le_bytes([bytes[0],bytes[1],bytes[2],bytes[3], bytes[4],bytes[5],bytes[6],bytes[7]]);
+                    bytes.clear();
+                    return Some((val, i + 1))
+                }
+            }
             None
         }
     }
@@ -144,6 +198,24 @@ impl ByteDecoder<u32> for IntegerDecoder {
             None
         }
     }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(u32, usize)> {
+        if bytes.len() == 0 && slice_to_decode.len() >= 4 {
+            Some((u32::from_le_bytes([slice_to_decode[0], slice_to_decode[1], slice_to_decode[2], slice_to_decode[3]]), 4))
+        }
+        else {
+            for i in 0..slice_to_decode.len() {
+                bytes.push(slice_to_decode[i]);
+                self.counter -= 1;
+
+                if self.counter == 0 {
+                    let val = u32::from_le_bytes([bytes[0],bytes[1],bytes[2],bytes[3]]);
+                    bytes.clear();
+                    return Some((val, i + 1))
+                }
+            }
+            None
+        }
+    }
 }
 
 impl FromBytes for u32 {
@@ -186,6 +258,24 @@ impl ByteDecoder<u16> for IntegerDecoder {
             None
         }
     }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(u16, usize)> {
+        if bytes.len() == 0 && slice_to_decode.len() >= 2 {
+            Some((u16::from_le_bytes([slice_to_decode[0], slice_to_decode[1]]), 2))
+        }
+        else {
+            for i in 0..slice_to_decode.len() {
+                bytes.push(slice_to_decode[i]);
+                self.counter -= 1;
+
+                if self.counter == 0 {
+                    let val = u16::from_le_bytes([bytes[0],bytes[1]]);
+                    bytes.clear();
+                    return Some((val, i + 1))
+                }
+            }
+            None
+        }
+    }
 }
 
 impl FromBytes for u16 {
@@ -214,6 +304,14 @@ impl ToBytes for u16 {
 impl ByteDecoder<u8> for IntegerDecoder {
     fn decode_byte(&mut self,bytes:&mut Vec<u8>, byte:u8) -> Option<u8> {
         Some(u8::from_le_bytes([byte]))
+    }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(u8, usize)> {
+        if slice_to_decode.len() > 0 {
+            Some((u8::from_le_bytes([slice_to_decode[0]]), 1))
+        }
+        else {
+            None
+        }
     }
 }
 
@@ -255,7 +353,26 @@ impl ByteDecoder<i64> for IntegerDecoder {
             None
         }
     }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(i64, usize)> {
+        if slice_to_decode.len() >= 8 {
+            Some((i64::from_le_bytes([slice_to_decode[0], slice_to_decode[1], slice_to_decode[2], slice_to_decode[3], slice_to_decode[4], slice_to_decode[5], slice_to_decode[6], slice_to_decode[7]]), 8))
+        }
+        else {
+            for i in 0..slice_to_decode.len() {
+                bytes.push(slice_to_decode[i]);
+                self.counter -= 1;
+
+                if self.counter == 0 {
+                    let val = i64::from_le_bytes([bytes[0],bytes[1],bytes[2],bytes[3], bytes[4],bytes[5],bytes[6],bytes[7]]);
+                    bytes.clear();
+                    return Some((val, i + 1))
+                }
+            }
+            None
+        }
+    }
 }
+
 
 impl FromBytes for i64 {
     type Decoder = IntegerDecoder;
@@ -294,6 +411,24 @@ impl ByteDecoder<i32> for IntegerDecoder {
             Some(i32::from_le_bytes(bytes_out))
         }
         else {
+            None
+        }
+    }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(i32, usize)> {
+        if bytes.len() == 0 && slice_to_decode.len() >= 4 {
+            Some((i32::from_le_bytes([slice_to_decode[0], slice_to_decode[1], slice_to_decode[2], slice_to_decode[3]]), 4))
+        }
+        else {
+            for i in 0..slice_to_decode.len() {
+                bytes.push(slice_to_decode[i]);
+                self.counter -= 1;
+
+                if self.counter == 0 {
+                    let val = i32::from_le_bytes([bytes[0],bytes[1],bytes[2],bytes[3]]);
+                    bytes.clear();
+                    return Some((val, i + 1))
+                }
+            }
             None
         }
     }
@@ -339,6 +474,24 @@ impl ByteDecoder<i16> for IntegerDecoder {
             None
         }
     }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(i16, usize)> {
+        if bytes.len() == 0 && slice_to_decode.len() >= 2 {
+            Some((i16::from_le_bytes([slice_to_decode[0], slice_to_decode[1]]), 2))
+        }
+        else {
+            for i in 0..slice_to_decode.len() {
+                bytes.push(slice_to_decode[i]);
+                self.counter -= 1;
+
+                if self.counter == 0 {
+                    let val = i16::from_le_bytes([bytes[0],bytes[1]]);
+                    bytes.clear();
+                    return Some((val, i + 1))
+                }
+            }
+            None
+        }
+    }
 }
 
 impl FromBytes for i16 {
@@ -367,6 +520,14 @@ impl ToBytes for i16 {
 impl ByteDecoder<i8> for IntegerDecoder {
     fn decode_byte(&mut self,bytes:&mut Vec<u8>, byte:u8) -> Option<i8> {
         Some(i8::from_le_bytes([byte]))
+    }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(i8, usize)> {
+        if slice_to_decode.len() > 0 {
+            Some((i8::from_le_bytes([slice_to_decode[0]]), 1))
+        }
+        else {
+            None
+        }
     }
 }
 

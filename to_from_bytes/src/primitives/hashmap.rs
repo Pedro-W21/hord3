@@ -41,6 +41,18 @@ impl<K:FromBytes + Eq + Hash, V:FromBytes> ByteDecoder<HashMap<K,V>> for HashMap
             None => None
         }
     }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(HashMap<K,V>, usize)> {
+        match <VecDecoder<(K,V)> as ByteDecoder<Vec<(K,V)>>>::decode_slice_borrow(&mut self.vec,bytes, slice_to_decode) {
+            Some((vec, bytes_read)) => {
+                let mut hashmap = HashMap::with_capacity(vec.len());
+                for (k,v) in vec {
+                    hashmap.insert(k, v);
+                }
+                Some((hashmap, bytes_read))
+            },
+            None => None
+        }
+    }
 }
 
 impl<K:FromBytes + Eq + Hash, V:FromBytes> FromBytes for HashMap<K, V> {

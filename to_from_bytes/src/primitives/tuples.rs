@@ -43,6 +43,49 @@ impl<T:FromBytes, U:FromBytes, V:FromBytes> ByteDecoder<(T,U,V)> for (EitherOr<T
         }
         None
     }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<((T,U,V), usize)> {
+        match &mut self.0 {
+            EitherOr::First(decoder) => match decoder.decode_slice_borrow(bytes, slice_to_decode) {
+                Some((decoded, bytes_read)) => {
+                    self.0 = EitherOr::Second(decoded);
+                    bytes.clear();
+                    match self.decode_slice_borrow(bytes, &slice_to_decode[bytes_read..]) {
+                        Some((full, total_read)) => return Some((full, total_read + bytes_read)),
+                        None => ()
+                    }
+                },
+                None => ()
+            },
+            EitherOr::Second(decoded_0) => {
+                match &mut self.1 {
+                    EitherOr::First(decoder) => match decoder.decode_slice_borrow(bytes, slice_to_decode) {
+                        Some((decoded, bytes_read)) => {
+                            self.1 = EitherOr::Second(decoded);
+                            bytes.clear();
+                            match self.decode_slice_borrow(bytes, &slice_to_decode[bytes_read..]) {
+                                Some((full, total_read)) => return Some((full, total_read + bytes_read)),
+                                None => ()
+                            }
+                        },
+                        None => ()
+                    },
+                    EitherOr::Second(decoded_1) => {
+                        match &mut self.2 {
+                            EitherOr::First(decoder) => match decoder.decode_slice_borrow(bytes, slice_to_decode) {
+                                Some((decoded, bytes_read)) => {
+                                    bytes.clear();
+                                    return Some(((decoded_0.clone(), decoded_1.clone(), decoded), bytes_read))
+                                },
+                                None => ()
+                            },
+                            _ => ()
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
 }
 
 impl<T:FromBytes, U:FromBytes, V:FromBytes> FromBytes for (T,U,V) {
@@ -77,6 +120,34 @@ impl<T:FromBytes, U:FromBytes> ByteDecoder<(T,U)> for (EitherOr<T::Decoder, T>,E
                 match &mut self.1 {
                     EitherOr::First(decoder) => match decoder.decode_byte(bytes, byte) {
                         Some(decoded_1) => {bytes.clear();return Some((decoded_0.clone(), decoded_1));},
+                        None => ()
+                    },
+                    _ => ()
+                }
+            }
+        }
+        None
+    }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<((T,U), usize)> {
+        match &mut self.0 {
+            EitherOr::First(decoder) => match decoder.decode_slice_borrow(bytes, slice_to_decode) {
+                Some((decoded, bytes_read)) => {
+                    self.0 = EitherOr::Second(decoded);
+                    bytes.clear();
+                    match self.decode_slice_borrow(bytes, &slice_to_decode[bytes_read..]) {
+                        Some((full, total_read)) => return Some((full, total_read + bytes_read)),
+                        None => ()
+                    }
+                },
+                None => ()
+            },
+            EitherOr::Second(decoded_0) => {
+                match &mut self.1 {
+                    EitherOr::First(decoder) => match decoder.decode_slice_borrow(bytes, slice_to_decode) {
+                        Some((decoded, bytes_read)) => {
+                            bytes.clear();
+                            return Some(((decoded_0.clone(), decoded), bytes_read))
+                        },
                         None => ()
                     },
                     _ => ()
@@ -135,6 +206,65 @@ impl<T:FromBytes, U:FromBytes, V:FromBytes, W:FromBytes> ByteDecoder<(T,U,V,W)> 
                                         Some(decoded_3) => {bytes.clear(); return Some((decoded_0.clone(), decoded_1.clone(), decoded_2.clone(), decoded_3))},
                                         None => ()
                                     }
+                                    _ => ()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<((T,U,V,W), usize)> {
+        match &mut self.0 {
+            EitherOr::First(decoder) => match decoder.decode_slice_borrow(bytes, slice_to_decode) {
+                Some((decoded, bytes_read)) => {
+                    self.0 = EitherOr::Second(decoded);
+                    bytes.clear();
+                    match self.decode_slice_borrow(bytes, &slice_to_decode[bytes_read..]) {
+                        Some((full, total_read)) => return Some((full, total_read + bytes_read)),
+                        None => ()
+                    }
+                },
+                None => ()
+            },
+            EitherOr::Second(decoded_0) => {
+                match &mut self.1 {
+                    EitherOr::First(decoder) => match decoder.decode_slice_borrow(bytes, slice_to_decode) {
+                        Some((decoded, bytes_read)) => {
+                            self.1 = EitherOr::Second(decoded);
+                            bytes.clear();
+                            match self.decode_slice_borrow(bytes, &slice_to_decode[bytes_read..]) {
+                                Some((full, total_read)) => return Some((full, total_read + bytes_read)),
+                                None => ()
+                            }
+                        },
+                        None => ()
+                    },
+                    EitherOr::Second(decoded_1) => {
+                        match &mut self.2 {
+                            EitherOr::First(decoder) => match decoder.decode_slice_borrow(bytes, slice_to_decode) {
+                                Some((decoded, bytes_read)) => {
+                                    self.2 = EitherOr::Second(decoded);
+                                    bytes.clear();
+                                    match self.decode_slice_borrow(bytes, &slice_to_decode[bytes_read..]) {
+                                        Some((full, total_read)) => return Some((full, total_read + bytes_read)),
+                                        None => ()
+                                    }
+                                },
+                                None => ()
+                            },
+                            EitherOr::Second(decoded_2) => {
+                                match &mut self.3 {
+                                    EitherOr::First(decoder) => match decoder.decode_slice_borrow(bytes, slice_to_decode) {
+                                        Some((decoded, bytes_read)) => {
+                                            bytes.clear();
+                                            return Some(((decoded_0.clone(), decoded_1.clone(), decoded_2.clone(), decoded), bytes_read))
+                                            
+                                        },
+                                        None => ()
+                                    },
                                     _ => ()
                                 }
                             }

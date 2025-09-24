@@ -38,6 +38,33 @@ impl<T:FromBytes> ByteDecoder<Option<T>> for Option<T::Decoder> {
         }
         None
     }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(Option<T>, usize)> {
+        for i in 0..slice_to_decode.len() {
+            let byte = slice_to_decode[i];
+            let out = match self {
+                Self::None => if byte == 0 {
+                    Some((None, 1))
+                }
+                else {
+                    *self = Some(T::get_decoder());
+                    None
+                },
+                Self::Some(decoder) => {
+                    match decoder.decode_slice_borrow(bytes, &slice_to_decode[i..]) {
+                        Some((decoded, bytes_read)) => {
+                            Some((Some(decoded), bytes_read))
+                        },
+                        None => None,
+                    }
+                }
+            };
+            match out {
+                None => (),
+                Some((decoded, bytes_read)) => return Some((decoded, i + bytes_read))
+            }
+        }
+        None
+    }
 }
 
 impl<T:FromBytes> FromBytes for Option<T> {

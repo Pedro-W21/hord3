@@ -287,6 +287,36 @@ fn decodebytes_named_struct(ast: &syn::DeriveInput, fields_struct:&FieldsNamed) 
                 }
                 
             }
+            fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(#name #ty_generics, usize)> {
+                let mut i = 0;
+                while self.counter < #last_count && i < slice_to_decode.len() {
+                    match self.counter {
+                        #(#counter_steps => {
+                            match <#decode_field_types as to_from_bytes::ByteDecoder<#field_types>>::decode_slice_borrow(&mut self.#decode_field_idents, bytes, &slice_to_decode[i..]) {
+                                Some((val,bytes_read)) => {
+                                    self.#attrs_names = Some(val);
+                                    self.counter += 1;
+                                    i += bytes_read;
+                                    bytes.clear();
+                                },
+                                None => i = slice_to_decode.len()
+                            };
+                        }),*
+                        
+                        _ => ()
+                    }
+                    
+                }
+                if self.counter == #last_count {
+                    bytes.clear();
+                    Some((#name {
+                        #(#attrs_names:self.#attrs_names.as_ref().unwrap().clone()),*
+                    }, i))
+                }
+                else {
+                    None
+                }
+            }
         }
         
 
@@ -380,6 +410,36 @@ fn decodebytes_unnamed_struct(ast: &syn::DeriveInput, fields_struct:&FieldsUnnam
                 }
                 
             }
+            fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(#name #ty_generics, usize)> {
+                let mut i = 0;
+                while self.counter < #last_count && i < slice_to_decode.len() {
+                    match self.counter {
+                        #(#counter_steps => {
+                            match <#decode_field_types as to_from_bytes::ByteDecoder<#field_types>>::decode_slice_borrow(&mut self.#decode_field_idents, bytes, &slice_to_decode[i..]) {
+                                Some((val,bytes_read)) => {
+                                    self.#attrs_names = Some(val);
+                                    self.counter += 1;
+                                    i += bytes_read;
+                                    bytes.clear();
+                                },
+                                None => i = slice_to_decode.len()
+                            };
+                        }),*
+                        
+                        _ => ()
+                    }
+                    
+                }
+                if self.counter == #last_count {
+                    bytes.clear();
+                    Some((#name(
+                        #(#attrs_names:self.#attrs_names.as_ref().unwrap().clone()),*
+                    ), i))
+                }
+                else {
+                    None
+                }
+            }
         }
         
 
@@ -423,21 +483,25 @@ fn impl_decodebytes_enum(ast:&syn::DeriveInput, dataenum:&DataEnum) -> TokenStre
 
     let mut byte_decode_variants = Vec::new();
 
+    let mut slice_decode_variants = Vec::new();
+
     let mut variant_number = 0_usize;
     for variant in &dataenum.variants {
         let ident = &variant.ident;
         match &variant.fields {
             Named(fields_named) => {
-                let (enum_variant, from_number, byte_decode) = get_enum_tokens_named(ast, fields_named, ident, &ast.ident, &decoder_enum_ident,variant_number as u8);
+                let (enum_variant, from_number, byte_decode, slice_decode) = get_enum_tokens_named(ast, fields_named, ident, &ast.ident, &decoder_enum_ident,variant_number as u8);
                 decoder_enum_variants.push(enum_variant.into());
                 decoders_from_numbers.push(from_number.into());
                 byte_decode_variants.push(byte_decode.into());
+                slice_decode_variants.push(slice_decode.into());
             },
             Unnamed(fields_unnamed) => {
-                let (enum_variant, from_number, byte_decode) = get_enum_tokens_unnamed(ast, fields_unnamed, ident, &ast.ident, &decoder_enum_ident,variant_number as u8);
+                let (enum_variant, from_number, byte_decode, slice_decode) = get_enum_tokens_unnamed(ast, fields_unnamed, ident, &ast.ident, &decoder_enum_ident,variant_number as u8);
                 decoder_enum_variants.push(enum_variant.into());
                 decoders_from_numbers.push(from_number.into());
                 byte_decode_variants.push(byte_decode.into());
+                slice_decode_variants.push(slice_decode.into());
 
             },
             Unit => {
@@ -453,9 +517,13 @@ fn impl_decodebytes_enum(ast:&syn::DeriveInput, dataenum:&DataEnum) -> TokenStre
                 byte_decode_variants.push(quote!{
                     #decoder_enum_ident::#enum_variant => None
                 });
+                slice_decode_variants.push(quote!{
+                    #decoder_enum_ident::#enum_variant => None
+                });
                 unit_decodes.push(quote!{
                     #decoder_enum_ident::#enum_variant => #name::#ident
                 });
+
             }
         }
         variant_number += 1;
@@ -509,6 +577,22 @@ fn impl_decodebytes_enum(ast:&syn::DeriveInput, dataenum:&DataEnum) -> TokenStre
                     },
                 }
             }
+            fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(#name #ty_generics, usize)> {
+                match &mut self.decoder_enum {
+                    #(#slice_decode_variants),*,
+                    MissingVariant => {
+                        let byte = slice_to_decode[0];
+                        let (enum_decoder, is_unit)= #decoder_enum_ident::from_variant_number(byte);
+                        if is_unit {
+                            Some((enum_decoder.unit_to_decoded(), 1))
+                        }
+                        else {
+                            self.decoder_enum = enum_decoder;
+                            self.decode_slice_borrow(bytes, &slice_to_decode[1..])
+                        }
+                    },
+                }
+            }
             
         }
 
@@ -525,7 +609,7 @@ fn impl_decodebytes_enum(ast:&syn::DeriveInput, dataenum:&DataEnum) -> TokenStre
     gen.into()
 }
 
-fn get_enum_tokens_named(ast:&syn::DeriveInput, fields_named:&FieldsNamed, ident:&Ident,enum_ident:&Ident, decode_enum_ident:&Ident,variant_number:u8) -> (TokenStream, TokenStream, TokenStream) {
+fn get_enum_tokens_named(ast:&syn::DeriveInput, fields_named:&FieldsNamed, ident:&Ident,enum_ident:&Ident, decode_enum_ident:&Ident,variant_number:u8) -> (TokenStream, TokenStream, TokenStream, TokenStream) {
     let variant_name = Ident::new(format!("{}Decoder", ident.to_string()).trim(), Span::call_site());
     let mut field_names = Vec::new();
     let mut field_declarations = Vec::new();
@@ -533,6 +617,7 @@ fn get_enum_tokens_named(ast:&syn::DeriveInput, fields_named:&FieldsNamed, ident
     
     let mut original_field_names = Vec::new();
     let mut decoder_declarations = Vec::new();
+    let mut slice_counter_steps = Vec::new();
 
     let mut counter = 0_u8;
     for field in fields_named.named.iter() {
@@ -559,6 +644,19 @@ fn get_enum_tokens_named(ast:&syn::DeriveInput, fields_named:&FieldsNamed, ident
             },
             None => ()
         }});
+        slice_counter_steps.push(quote! {
+            #counter => {
+                match #decode_field_name.decode_slice_borrow(bytes, &slice_to_decode[i..]) {
+                    Some((val,bytes_read)) => {
+                        *#field_ident = Some(val);
+                        self.counter += 1;
+                        i += bytes_read;
+                        bytes.clear();
+                    },
+                    None => i = slice_to_decode.len()
+                };
+            }
+        });
         counter += 1;
     }
     let number_of_fields = fields_named.named.len() as u8;
@@ -577,14 +675,36 @@ fn get_enum_tokens_named(ast:&syn::DeriveInput, fields_named:&FieldsNamed, ident
             _ => ()
         }
         #final_counter
-    }}.into())
+    }}.into(),
+    quote! {
+        #decode_enum_ident::#variant_name{#(#field_names),*} => {
+            let mut i = 0;
+            while self.counter < #number_of_fields && i < slice_to_decode.len() {
+                match self.counter {
+                    #(#slice_counter_steps),*,
+                    
+                    _ => ()
+                }
+                
+            }
+            if self.counter == #number_of_fields {
+                bytes.clear();
+                Some((#enum_ident::#ident{#(#original_field_names:#original_field_names.as_ref().unwrap().clone()),*}, i))
+            }
+            else {
+                None
+            }
+        }
+    }.into()
+)
 }   
 
-fn get_enum_tokens_unnamed(ast:&syn::DeriveInput, fields_named:&FieldsUnnamed, ident:&Ident,enum_ident:&Ident,decode_enum_ident:&Ident ,variant_number:u8) -> (TokenStream, TokenStream, TokenStream) {
+fn get_enum_tokens_unnamed(ast:&syn::DeriveInput, fields_named:&FieldsUnnamed, ident:&Ident,enum_ident:&Ident,decode_enum_ident:&Ident ,variant_number:u8) -> (TokenStream, TokenStream, TokenStream, TokenStream) {
     let variant_name = Ident::new(format!("{}Decoder", ident.to_string()).trim(), Span::call_site());
     let mut field_names = Vec::new();
     let mut field_declarations = Vec::new();
     let mut counter_steps = Vec::new();
+    let mut slice_counter_steps = Vec::new();
     
     let mut original_field_names = Vec::new();
     let mut decoder_declarations = Vec::new();
@@ -614,6 +734,19 @@ fn get_enum_tokens_unnamed(ast:&syn::DeriveInput, fields_named:&FieldsUnnamed, i
             },
             None => ()
         }});
+        slice_counter_steps.push(quote! {
+            #counter => {
+                match #decode_field_name.decode_slice_borrow(bytes, &slice_to_decode[i..]) {
+                    Some((val,bytes_read)) => {
+                        *#field_ident = Some(val);
+                        self.counter += 1;
+                        i += bytes_read;
+                        bytes.clear();
+                    },
+                    None => i = slice_to_decode.len()
+                };
+            }
+        });
         counter += 1;
     }
     let number_of_fields = fields_named.unnamed.len() as u8;
@@ -632,7 +765,30 @@ fn get_enum_tokens_unnamed(ast:&syn::DeriveInput, fields_named:&FieldsUnnamed, i
             _ => ()
         }
         #final_counter
-    }}.into())
+    }}.into(),
+
+    quote! {
+        #decode_enum_ident::#variant_name{#(#field_names),*} => {
+            let mut i = 0;
+            while self.counter < #number_of_fields && i < slice_to_decode.len() {
+                match self.counter {
+                    #(#slice_counter_steps),*,
+                    
+                    _ => ()
+                }
+                
+            }
+            if self.counter == #number_of_fields {
+                bytes.clear();
+                Some((#enum_ident::#ident(#(#original_field_names.as_ref().unwrap().clone()),*), i))
+            }
+            else {
+                None
+            }
+        }
+        
+    }.into()
+)
 }
 
 fn impl_decodebytes(ast: &syn::DeriveInput) -> TokenStream {

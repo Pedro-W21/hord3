@@ -11,13 +11,22 @@ pub trait ToBytes:Sized + Clone {
 
 pub trait ByteDecoder<T:FromBytes>:Clone {
     fn decode_byte(&mut self,bytes:&mut Vec<u8>, byte:u8) -> Option<T>; //a
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(T, usize)> {
+        for i in 0..slice_to_decode.len() {
+            match self.decode_byte(bytes, slice_to_decode[i]) {
+                Some(decoded) => return Some((decoded, i + 1)),
+                None => ()
+            }
+        }
+        None
+    }
 }
 
 pub trait ByteDecoderUtilities<T:FromBytes>:ByteDecoder<T> {
     fn decode_bytes(&mut self, bytes:&mut Vec<u8>, bytes_to_decode:Vec<u8>) -> Option<T>;
     fn decode_bytes_borrow(&mut self, bytes:&mut Vec<u8>, bytes_to_decode:&mut Vec<u8>) -> Option<T>;
     fn decode_multiple_from_slice(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Vec<T>;
-    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(T, usize)>;
+    
 }
 
 impl<T:FromBytes<Decoder = BD>, BD:ByteDecoder<T>> ByteDecoderUtilities<T> for BD {
@@ -73,15 +82,7 @@ impl<T:FromBytes<Decoder = BD>, BD:ByteDecoder<T>> ByteDecoderUtilities<T> for B
 
         total_decoded
     }
-    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(T, usize)> {
-        for i in 0..slice_to_decode.len() {
-            match self.decode_byte(bytes, slice_to_decode[i]) {
-                Some(decoded) => return Some((decoded, i + 1)),
-                None => ()
-            }
-        }
-        None
-    }
+    
 }
 
 pub trait FromBytes:ToBytes {

@@ -1,12 +1,9 @@
 use std::collections::VecDeque;
 
-use crate::{ToBytes, FromBytes, ByteDecoder};
+use crate::{primitives::vec_decode::VecDecoder, ByteDecoder, FromBytes, ToBytes};
 #[derive(Clone)]
 pub struct VecDequeDecoder<T:FromBytes> {
-    counter:usize,
-    got_len:bool,
-    element_decoder:T::Decoder,
-    elements:VecDeque<T>
+    vec:VecDecoder<T>
 }
 
 impl<T:ToBytes> ToBytes for VecDeque<T> {
@@ -37,50 +34,35 @@ impl<T:FromBytes> FromBytes for VecDeque<T> {
     type Decoder = VecDequeDecoder<T>;
     fn get_decoder() -> Self::Decoder {
         VecDequeDecoder {
-            counter:8,
-            got_len:false,
-            element_decoder:T::get_decoder(),
-            elements:VecDeque::new(),
+            vec:Vec::get_decoder()
         }
     }
 }
 
 impl<T:FromBytes> ByteDecoder<VecDeque<T>> for VecDequeDecoder<T> {
     fn decode_byte(&mut self,bytes:&mut Vec<u8>, byte:u8) -> Option<VecDeque<T>> {
-        
-        if self.got_len {
-            match self.element_decoder.decode_byte(bytes, byte) {
-                Some(element) => {
-                    self.counter -= 1;
-                    self.elements.push_back(element);
-                    self.element_decoder = T::get_decoder();
-                    bytes.clear();
-                },
-                None => ()
-            }
-            if self.counter == 0 {
-                bytes.clear();
-                Some(self.elements.clone())
-            }
-            else {
-                
-                None
-            }
-        }
-        else {
-            self.counter -= 1;
-            bytes.push(byte);
-            if self.counter == 0 {
-                self.counter = usize::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]]);
-                self.elements = VecDeque::with_capacity(self.counter as usize);
-                self.got_len = true;
-                bytes.clear();
-            }
-            if self.counter == 0 {
-                return Some(VecDeque::new())
-            }
-            None
+        match <VecDecoder<T> as ByteDecoder<Vec<T>>>::decode_byte(&mut self.vec,bytes, byte) {
+            Some(vec) => {
+                let mut hashmap = VecDeque::with_capacity(vec.len());
+                for k in vec {
+                    hashmap.push_back(k);
+                }
+                Some(hashmap)
+            },
+            None => None
         }
         
+    }
+    fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(VecDeque<T>, usize)> {
+        match <VecDecoder<T> as ByteDecoder<Vec<T>>>::decode_slice_borrow(&mut self.vec,bytes, slice_to_decode) {
+            Some((vec, bytes_read)) => {
+                let mut hashmap = VecDeque::with_capacity(vec.len());
+                for k in vec {
+                    hashmap.push_back(k);
+                }
+                Some((hashmap, bytes_read))
+            },
+            None => None
+        }
     }
 }
