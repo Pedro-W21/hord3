@@ -485,7 +485,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
         impl<'a, ID:Identify> #gen_vec_read_type <'a, ID> {
             pub fn get_components_for(&'a self, id:usize) -> Vec<#sync_component_enum_id> {
                 let mut components = Vec::with_capacity(8); //Estimate could be exact
-                #(components.push(#sync_component_enum_id::#arw_components(self.#arw_components[id].clone())));*;
+                #(components.push(#sync_component_enum_id::#must_sync_components(self.#must_sync_components[id].clone())));*;
                 components
             }
             pub fn get_expected_len(&'a self) -> usize {
