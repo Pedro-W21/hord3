@@ -375,34 +375,6 @@ impl<ME:MultiplayerEngine + 'static> HordeServerData<ME> {
         }
     }
 
-    /// Multithreadable
-    fn send_packet_to(&self, stream:&mut TcpStream, packet:HordeMultiplayerPacket<ME>) {
-        //println!("[Multiplayer server] Sending packet");
-        let mut bytes = Vec::with_capacity(packet.get_bytes_size());
-        packet.add_bytes(&mut bytes);
-        assert_eq!(bytes.len(), bytes.capacity());
-        //println!("[Multiplayer server] SENDING {:?}", bytes.clone());
-        let mut start = 0;
-        loop {
-            match stream.write(&bytes[start..]) {
-                Ok(bytes_written) => {
-                    start += bytes_written;
-                    stream.flush().unwrap();
-                    if start == bytes.len() {
-                        break;
-                    }
-                },
-                Err(error) => if error.kind() == ErrorKind::WouldBlock {
-                    continue;
-                }
-                else {
-                    panic!("writing error {}", error);
-                }
-            }
-        }
-        
-    }
-
     /// Sequential, called on its own after streams_share_spread
     fn reset_counters(&self) {
         let mut tcp_write = self.tcp.write().unwrap();
@@ -617,7 +589,6 @@ impl<ME:MultiplayerEngine + 'static> HordeClientTcp<ME> {
         let mut id = 0;
         let mut tickrate = 0;
         let mut given_id = false;
-        let mut decoder:HordeMultiplayerPacketDecoder<ME> = HordeMultiplayerPacket::get_decoder();
         let mut local_tcp_buffer = vec![0 ; 1024];
         let mut local_decode_buffer = Vec::with_capacity(1024);
         let mut local_decoder = HordeMultiplayerPacket::<ME>::get_decoder();
@@ -639,7 +610,7 @@ impl<ME:MultiplayerEngine + 'static> HordeClientTcp<ME> {
         HordeMultiplayerPacket::<ME>::SendMeEverything.add_bytes(&mut buffer);
         stream.write(&mut buffer);
         println!("[Multiplayer client] Sent everything request");
-        let (events_sender, decoded_events) = TcpStreamHandler::initiate(stream, vec![0 ; 4096], Vec::with_capacity(1024), HordeMultiplayerPacket::<ME>::get_decoder());
+        let (events_sender, decoded_events) = TcpStreamHandler::initiate(stream, vec![0 ; 4096], local_decode_buffer, local_decoder);
         (Self {id_generator:ME::get_random_id_generator(),adress, events_sender, decoded_events}, id, tickrate)
     }
     fn send_packet(&mut self, packet:HordeMultiplayerPacket<ME>) {
