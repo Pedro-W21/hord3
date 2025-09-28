@@ -101,7 +101,7 @@ impl<ME:MultiplayerEngine + 'static> TcpStreamHandler<ME> {
         while let Ok(data) = self.events_to_send.try_recv() {
             let mut start = 0;
             loop {
-                println!("Inside writing loop with start = {} and len = {}", start, data.len());
+                println!("Inside writing loop with start = {} and len = {} and queue size = {}", start, data.len(), self.events_to_send.len());
                 match self.stream.write(&data[start..]) {
                     Ok(bytes_written) => {
                         start += bytes_written;
