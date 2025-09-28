@@ -7,9 +7,14 @@ pub mod primitives;
 pub trait ToBytes:Sized + Clone {
     fn add_bytes(&self, bytes:&mut Vec<u8>);
     fn get_bytes_size(&self) -> usize;
+    fn get_bytes_vec(&self) -> Vec<u8> {
+        let mut vec = Vec::with_capacity(self.get_bytes_size());
+        self.add_bytes(&mut vec);
+        vec
+    }
 }
 
-pub trait ByteDecoder<T:FromBytes>:Clone {
+pub trait ByteDecoder<T:FromBytes>:Clone + Send + Sync {
     fn decode_byte(&mut self,bytes:&mut Vec<u8>, byte:u8) -> Option<T>; //a
     fn decode_slice_borrow(&mut self, bytes:&mut Vec<u8>, slice_to_decode:&[u8]) -> Option<(T, usize)> {
         for i in 0..slice_to_decode.len() {
@@ -85,7 +90,7 @@ impl<T:FromBytes<Decoder = BD>, BD:ByteDecoder<T>> ByteDecoderUtilities<T> for B
     
 }
 
-pub trait FromBytes:ToBytes {
+pub trait FromBytes:ToBytes + Send + Sync {
     type Decoder:ByteDecoder<Self>;
     fn get_decoder() -> Self::Decoder;
 }
