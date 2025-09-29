@@ -90,9 +90,9 @@ impl<ME:MultiplayerEngine + 'static> TcpStreamHandler<ME> {
         }
     }
     pub fn read_from_stream(&mut self) {
-        //println!("[TCP Handler] Reading from stream with {} bytes in my decoder", self.local_decode_buffer.len()); 
+        println!("[TCP Handler] Reading from stream with {} bytes in my decoder", self.local_decode_buffer.len()); 
         let events = decode_from_tcp::<false, HordeMultiplayerPacket<ME>>(&mut self.local_decoder, &mut self.stream, &mut self.local_tcp_buffer, &mut self.local_decode_buffer);
-        //println!("[TCP Handler] Finished reading from stream with {} bytes in my decoder and {} events decoded", self.local_decode_buffer.len(), events.len()); 
+        println!("[TCP Handler] Finished reading from stream with {} bytes in my decoder and {} events decoded", self.local_decode_buffer.len(), events.len()); 
         for event in events {
             self.decoded_events.send(event).unwrap();
         }
@@ -101,7 +101,7 @@ impl<ME:MultiplayerEngine + 'static> TcpStreamHandler<ME> {
         while let Ok(data) = self.events_to_send.try_recv() {
             let mut start = 0;
             loop {
-                //println!("Inside writing loop with start = {} and len = {} and queue size = {}", start, data.len(), self.events_to_send.len());
+                println!("Inside writing loop with start = {} and len = {} and queue size = {}", start, data.len(), self.events_to_send.len());
                 match self.stream.write(&data[start..]) {
                     Ok(bytes_written) => {
                         start += bytes_written;
