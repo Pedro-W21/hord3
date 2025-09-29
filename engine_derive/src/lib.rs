@@ -507,6 +507,13 @@ fn create_engine(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed, user_d
                     fn get_random_id_generator() -> Self::RIDG {
                         fastrand::Rng::new()
                     }
+                    fn get_total_len(&self) -> usize {
+                        let read = self.get_read();
+                        let len = #(
+                            read.#ent_idents.get_expected_len()
+                        )+*;
+                        len                        
+                    }
                     fn generate_random_id(&self, generator:&mut Self::RIDG) -> Option<Self::ID> {
                         let read = self.get_read();
                         if #max_number > 0 {

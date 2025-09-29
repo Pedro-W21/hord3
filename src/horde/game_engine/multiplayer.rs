@@ -30,6 +30,7 @@ pub trait MultiplayerEngine:Clone {
     fn apply_event(&mut self, event:Self::GE);
     fn generate_random_id(&self, generator:&mut Self::RIDG) -> Option<Self::ID>;
     fn get_random_id_generator() -> Self::RIDG;
+    fn get_total_len(&self) -> usize;
     fn get_latest_event_report(&self) -> Option<HordeEventReport<Self::ID, Self::GE>>;
 }
 
@@ -90,9 +91,9 @@ impl<ME:MultiplayerEngine + 'static> TcpStreamHandler<ME> {
         }
     }
     pub fn read_from_stream(&mut self) {
-        println!("[TCP Handler] Reading from stream with {} bytes in my decoder", self.local_decode_buffer.len()); 
+        // println!("[TCP Handler] Reading from stream with {} bytes in my decoder", self.local_decode_buffer.len()); 
         let events = decode_from_tcp::<false, HordeMultiplayerPacket<ME>>(&mut self.local_decoder, &mut self.stream, &mut self.local_tcp_buffer, &mut self.local_decode_buffer);
-        println!("[TCP Handler] Finished reading from stream with {} bytes in my decoder and {} events decoded", self.local_decode_buffer.len(), events.len()); 
+        // println!("[TCP Handler] Finished reading from stream with {} bytes in my decoder and {} events decoded", self.local_decode_buffer.len(), events.len()); 
         for event in events {
             self.decoded_events.send(event).unwrap();
         }
@@ -101,7 +102,7 @@ impl<ME:MultiplayerEngine + 'static> TcpStreamHandler<ME> {
         while let Ok(data) = self.events_to_send.try_recv() {
             let mut start = 0;
             loop {
-                println!("Inside writing loop with start = {} and len = {} and queue size = {}", start, data.len(), self.events_to_send.len());
+                // println!("Inside writing loop with start = {} and len = {} and queue size = {}", start, data.len(), self.events_to_send.len());
                 match self.stream.write(&data[start..]) {
                     Ok(bytes_written) => {
                         start += bytes_written;
@@ -125,7 +126,7 @@ impl<ME:MultiplayerEngine + 'static> TcpStreamHandler<ME> {
 #[derive(Clone)]
 pub struct HordeTcpServerData<ME:MultiplayerEngine> {
     listener:Arc<RwLock<TcpListener>>,
-    streams:HashMap<usize, (SocketAddr, (Sender<Vec<u8>>, Receiver<HordeMultiplayerPacket<ME>>))>,
+    streams:HashMap<usize, (SocketAddr, (Sender<Vec<u8>>, Receiver<HordeMultiplayerPacket<ME>>), Arc<RwLock<ME::RIDG>>)>,
     connected_players:Vec<usize>,
     connected_counter:ParallelCounter,
 }
@@ -192,7 +193,7 @@ impl<ME:MultiplayerEngine + 'static> HordeServerData<ME> {
         };
         match extras {
             Some((given_id, new_stream, adress, cool_len, decoder, tcp_buffer, decode_buffer)) => {
-                tcp_write.streams.insert(given_id, (adress, TcpStreamHandler::initiate(new_stream, tcp_buffer, decode_buffer, decoder, self.tickrate)));
+                tcp_write.streams.insert(given_id, (adress, TcpStreamHandler::initiate(new_stream, tcp_buffer, decode_buffer, decoder, self.tickrate), Arc::new(RwLock::new(ME::get_random_id_generator()))));
                 tcp_write.connected_counter.update_len(tcp_write.streams.len());
             }
             None => ()
@@ -289,7 +290,7 @@ impl<ME:MultiplayerEngine + 'static> HordeServerData<ME> {
             for new_player in new_players {
                 tcp_write.connected_players.push(new_player.1);
                 players.players.write().unwrap().push(HordePlayer {ent_id:None, player_name:new_player.0.clone(), player_id:new_player.1});
-                for (player, (_, (sender, _))) in tcp_write.streams.iter() {
+                for (player, (_, (sender, _), _)) in tcp_write.streams.iter() {
                     sender.send(HordeMultiplayerPacket::<ME>::PlayerJoined(HordePlayer {ent_id:None, player_name:new_player.0.clone(), player_id:new_player.1}).get_bytes_vec()).unwrap();
                 }
             }
@@ -319,7 +320,7 @@ impl<ME:MultiplayerEngine + 'static> HordeServerData<ME> {
         while let Ok(global_event) = self.events_to_spread.try_recv() {
             for player in &tcp.connected_players {
                 match tcp.streams.get(player) {
-                    Some((_, (sender, recv))) => sender.send(HordeMultiplayerPacket::<ME>::SpreadEvent(global_event.clone()).get_bytes_vec()).unwrap(),
+                    Some((_, (sender, recv), _)) => sender.send(HordeMultiplayerPacket::<ME>::SpreadEvent(global_event.clone()).get_bytes_vec()).unwrap(),
                     None => panic!("Player wasn't removed from players list"),
                 }
             }
@@ -339,13 +340,13 @@ impl<ME:MultiplayerEngine + 'static> HordeServerData<ME> {
             counter
         };
         for i in counter {
-            let (addr, (sender, recv)) = {
+            let (addr, (sender, recv), random) = {
                 let mut tcp_read = self.tcp.read().unwrap();
                 let player = tcp_read.connected_players[i];
                 match tcp_read.streams.get(&player) {
-                    Some((addr, pair)) => {
+                    Some((addr, pair, random_gen)) => {
                         //let mut stream_write = stream.write().unwrap();
-                        (addr.clone(), pair.clone())
+                        (addr.clone(), pair.clone(), random_gen.clone())
                     },
                     None => panic!("Big problem, player {} not found", player)
                 }
@@ -360,14 +361,14 @@ impl<ME:MultiplayerEngine + 'static> HordeServerData<ME> {
                         HordeMPServerResponse::ToEveryone(rep) => {
                             let tcp_read = self.tcp.read().unwrap();
                             let bytes = rep.get_bytes_vec();
-                            for (addr, (sender, receiver)) in tcp_read.streams.values() {
+                            for (addr, (sender, receiver), _) in tcp_read.streams.values() {
                                 sender.send(bytes.clone()).unwrap();
                             }
                         },
                         HordeMPServerResponse::ToEveryoneElse(rep) => {
                             let bytes = rep.get_bytes_vec();
                             let tcp_read = self.tcp.read().unwrap();
-                            for (target_addr, (sender, receiver)) in tcp_read.streams.values() {
+                            for (target_addr, (sender, receiver), _) in tcp_read.streams.values() {
                                 if *target_addr != addr {
                                     sender.send(bytes.clone()).unwrap();
                                 }
@@ -375,6 +376,20 @@ impl<ME:MultiplayerEngine + 'static> HordeServerData<ME> {
                             }
                         },
                     }
+                }
+            }
+            let mut gen_mut = random.write().unwrap();
+            let number_of_randoms = engine.get_total_len()/self.tickrate + 1;
+            for i in 0..number_of_randoms {
+                let random = engine.generate_random_id(&mut gen_mut);
+                match random {
+                    Some(random) => {
+                        let stuff = engine.get_components_to_sync_for(&random);
+                        for component in stuff {
+                            sender.send(HordeMultiplayerPacket::<ME>::ResetComponent { id: random.clone(), data: component }.get_bytes_vec()).unwrap();
+                        }
+                    },
+                    None => ()
                 }
             }
         }
@@ -399,7 +414,7 @@ impl<ME:MultiplayerEngine + 'static> HordeServerData<ME> {
                 let mut tcp_read = self.tcp.read().unwrap();
                 let player = tcp_read.connected_players[i];
                 match tcp_read.streams.get(&player) {
-                    Some((addr, pair)) => {
+                    Some((addr, pair, _)) => {
                         //let mut stream_write = stream.write().unwrap();
                         (addr.clone(), pair.clone())
                     },
@@ -682,7 +697,7 @@ impl<ME:MultiplayerEngine + 'static> HordeClientTcp<ME> {
             }
         }
         
-        for i in 0..2 {
+        for i in 0..(engine.get_total_len()/50 + 1) {
             let random = engine.generate_random_id(&mut self.id_generator);
             match random {
                 Some(random) => {
