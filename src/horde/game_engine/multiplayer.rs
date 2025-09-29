@@ -168,6 +168,7 @@ impl<ME:MultiplayerEngine + 'static> HordeServerData<ME> {
                 let mut tcp_buffer = vec![0 ; 4096];
                 let mut decode_buffer = Vec::with_capacity(1024);
                 while !got_first_response {
+                    println!("[Multiplayer server] Reading events from client during handshake");
                     let events = decode_from_tcp::<false, HordeMultiplayerPacket<ME>>(&mut decoder, &mut new_stream, &mut tcp_buffer, &mut decode_buffer);
                     for event in events {
                         match event {
@@ -177,13 +178,13 @@ impl<ME:MultiplayerEngine + 'static> HordeServerData<ME> {
                     }
                     
                 }
-                
+
                 given_id = self.player_id_generator.fetch_add(1, Ordering::Relaxed);
                 //println!("HANDSHOOK {} | GAVE ID {}", decoded_pseudonym, given_id);
                 tcp_buffer.clear();
                 HordeMultiplayerPacket::<ME>::ThatsUrPlayerID(given_id, self.tickrate).add_bytes(&mut tcp_buffer);
                 new_stream.write(&tcp_buffer).unwrap();
-                //println!("[Multiplayer server] Sent player ID");
+                println!("[Multiplayer server] Sent player ID");
                 (Some((decoded_pseudonym, given_id)), Some((given_id, new_stream, adress, tcp_write.streams.len(), decoder, tcp_buffer, decode_buffer)))
             },
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => (None, None),
@@ -592,10 +593,13 @@ impl<ME:MultiplayerEngine + 'static> HordeClientTcp<ME> {
         let mut id = 0;
         let mut tickrate = 0;
         let mut given_id = false;
+
+        stream.set_read_timeout(Some(Duration::from_secs_f64((1.0/(50.0 as f64)) * 0.5)));
         let mut local_tcp_buffer = vec![0 ; 1024];
         let mut local_decode_buffer = Vec::with_capacity(1024);
         let mut local_decoder = HordeMultiplayerPacket::<ME>::get_decoder();
         while !given_id {
+            println!("[Multiplayer client] Reading events from server");
             let events = decode_from_tcp::<false, HordeMultiplayerPacket<ME>>(&mut local_decoder, &mut stream, &mut local_tcp_buffer, &mut local_decode_buffer);
             for event in events {
                 match event {
