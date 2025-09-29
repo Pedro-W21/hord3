@@ -90,9 +90,9 @@ impl<ME:MultiplayerEngine + 'static> TcpStreamHandler<ME> {
         }
     }
     pub fn read_from_stream(&mut self) {
-        println!("[TCP Handler] Reading from stream with {} bytes in my decoder", self.local_decode_buffer.len()); 
+        //println!("[TCP Handler] Reading from stream with {} bytes in my decoder", self.local_decode_buffer.len()); 
         let events = decode_from_tcp::<false, HordeMultiplayerPacket<ME>>(&mut self.local_decoder, &mut self.stream, &mut self.local_tcp_buffer, &mut self.local_decode_buffer);
-        println!("[TCP Handler] Finished reading from stream with {} bytes in my decoder and {} events decoded", self.local_decode_buffer.len(), events.len()); 
+        //println!("[TCP Handler] Finished reading from stream with {} bytes in my decoder and {} events decoded", self.local_decode_buffer.len(), events.len()); 
         for event in events {
             self.decoded_events.send(event).unwrap();
         }
@@ -101,7 +101,7 @@ impl<ME:MultiplayerEngine + 'static> TcpStreamHandler<ME> {
         while let Ok(data) = self.events_to_send.try_recv() {
             let mut start = 0;
             loop {
-                println!("Inside writing loop with start = {} and len = {} and queue size = {}", start, data.len(), self.events_to_send.len());
+                //println!("Inside writing loop with start = {} and len = {} and queue size = {}", start, data.len(), self.events_to_send.len());
                 match self.stream.write(&data[start..]) {
                     Ok(bytes_written) => {
                         start += bytes_written;
@@ -159,7 +159,7 @@ impl<ME:MultiplayerEngine + 'static> HordeServerData<ME> {
         let (result, extras) = match tcp_write.listener.write().unwrap().accept() {
             Ok((mut new_stream, adress)) => {
                 //println!("NEW STREAM");
-                new_stream.set_nonblocking(true);
+                new_stream.set_read_timeout(Some(Duration::from_secs_f64((1.0/(self.tickrate as f64)) * 0.5)));
                 let mut decoder = HordeMultiplayerPacket::<ME>::get_decoder();
                 let mut got_first_response = false;
                 let mut decoded_pseudonym = String::new();
@@ -583,7 +583,6 @@ pub struct HordeClientTcp<ME:MultiplayerEngine + 'static> {
 impl<ME:MultiplayerEngine + 'static> HordeClientTcp<ME> {
     fn new(adress:(Ipv4Addr, u16), name:String) -> (Self, usize, usize) {
         let mut stream = TcpStream::connect_timeout(&adress.into(), Duration::from_secs(3)).unwrap();
-        stream.set_nonblocking(true);
         let mut buffer = Vec::with_capacity(1024);
         HordeMultiplayerPacket::<ME>::WannaJoin(name).add_bytes(&mut buffer);
         stream.write(&buffer).expect("Got an error while sending for handshake");
@@ -609,6 +608,8 @@ impl<ME:MultiplayerEngine + 'static> HordeClientTcp<ME> {
                 }
             }
         }
+
+        stream.set_read_timeout(Some(Duration::from_secs_f64((1.0/(tickrate as f64)) * 0.5)));
         println!("[Multiplayer client] got player ID");
         buffer.clear();
         HordeMultiplayerPacket::<ME>::SendMeEverything.add_bytes(&mut buffer);
