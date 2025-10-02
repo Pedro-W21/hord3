@@ -33,7 +33,7 @@ pub trait Component<ID:Identify>:Send + Sync + Sized + Clone {
 }
 
 pub trait NewEntity<E:Entity<ID>, ID:Identify>:Sized + Sync + Send {
-    fn get_ent(self) -> E;
+    fn get_ent(self, static_type:&E::SE) -> E;
 }
 
 pub trait Renderable<RB>:Sized + Sync + Send {

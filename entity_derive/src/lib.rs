@@ -160,6 +160,9 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                             created_by
                         }
                     }
+                    pub fn get_static_type_id(&self) -> usize {
+                        <#static_type_id_type as HasStaticTypeID>::get_id(&self.#static_type_id_component)
+                    }
                 }
                 #[derive(Clone, to_from_bytes_derive::ToBytes, to_from_bytes_derive::FromBytes, PartialEq)]
                 pub enum #sync_event_enum_id<ID:Identify> {
@@ -328,6 +331,9 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                         Self {
                             #(#used_new_components),* ,
                         }
+                    }
+                    pub fn get_static_type_id(&self) -> usize {
+                        <#static_type_id_type as HasStaticTypeID>::get_id(&self.#static_type_id_component)
                     }
                 }
 
@@ -501,7 +507,8 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
 
         impl<'a, ID:Identify> #gen_vec_write_type <'a, ID> {
             pub fn new_ent(&mut self, new_ent:#gen_new_ent_type #new_ent_type_generics) -> usize {
-                let ent = <#gen_new_ent_type #new_ent_type_generics as NewEntity<#ent_ident #ty_generics, ID>>::get_ent(new_ent);
+                let static_type = new_ent.get_static_type_id();
+                let ent = <#gen_new_ent_type #new_ent_type_generics as NewEntity<#ent_ident #ty_generics, ID>>::get_ent(new_ent, &self.static_types[static_type]);
                 match self.available_entities.pop_back() {
                     Some(id) => {
                         #(self.#arw_components[id] = ent.#arw_components);*;

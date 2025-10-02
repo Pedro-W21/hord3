@@ -90,7 +90,7 @@ pub struct CoolEntity {
 }
 
 impl<ID:Identify> NewEntity<CoolEntity, ID> for NewCoolEntity<ID> {
-    fn get_ent(self) -> CoolEntity {
+    fn get_ent(self, static_type:&StaticCoolEntity<ID>) -> CoolEntity {
         CoolEntity { pos: self.pos, instance_id:None }
     }
 }
