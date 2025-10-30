@@ -249,12 +249,9 @@ impl Intersection<Line3D> for Triangle {
             LinePlaneIntersection::Line => LinePlaneIntersection::Line,
             LinePlaneIntersection::Point(coef) => {
                 let point = target.get_point_at(coef);
-                let (dx, dy) = vector_plane.directors();
+                let (v1, v2) = vector_plane.directors();
                 let orig = self.points[0];
                 let plane_point = (point - orig);
-                let (mut v1,mut v2) = (plane_point.component_div(&dx), plane_point.component_div(&dy));
-                v1.zero_out_nans();
-                v2.zero_out_nans();
                 let mut a = Coord::X;
                 let mut b = Coord::Y;
                 let mut other_member = 1.0;
