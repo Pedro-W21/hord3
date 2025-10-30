@@ -2,7 +2,7 @@ use std::{f32::consts::{PI, SQRT_2}, ops::{Add, AddAssign, Div}};
 
 use to_from_bytes_derive::{ToBytes, FromBytes};
 
-use crate::defaults::default_rendering::vectorinator::meshes::Rectangle;
+use crate::{defaults::default_rendering::vectorinator::meshes::Rectangle, horde::geometry::{Intersection, line::Line3D, plane::{EquationPlane, LinePlaneIntersection, VectorPlane}, vec3d::{Coord, Vec3D}}};
 
 use super::{rotation::Rotation, vec3d::Vec3Df};
 
@@ -55,6 +55,14 @@ pub type FixedConvexFace<const N:usize> = FixedPointCloud<N>;
 impl<const N:usize> FixedConvexFace<N> {
     pub fn new(points:[Vec3Df ; N]) -> Self {
         Self { points }
+    }
+    pub fn get_lines(&self) -> [Line3D ; N] {
+        let mut lines = [Line3D::new(Vec3Df::zero(), Vec3Df::zero()) ; N];
+        for i in 0..(N-1) {
+            lines[i] = Line3D::new(self.points[i], self.points[i+1] - self.points[i]);
+        }
+        lines[N-1] = Line3D::new(self.points[N-1], self.points[0] - self.points[N-1]);
+        lines
     }
     pub fn barycenter(&self) -> Vec3Df {
         let mut total = Vec3Df::zero();
@@ -147,46 +155,6 @@ impl<const N:usize> FixedConvexFace<N> {
     } 
 }
 
-#[derive(PartialEq, Eq)]
-pub enum Intersection {
-    No,
-    InsideOfShapes,
-    OutsideOfShapes
-}
-
-impl Intersection {
-    pub fn to_bool(self) -> bool {
-        match self {
-            Intersection::No | Intersection::OutsideOfShapes => false,
-            Intersection::InsideOfShapes => true,
-        }
-    }
-}
-
-pub enum LineIntersection {
-    No,
-    AfterDirector(f32),
-    BeforeDirector(f32),
-    Yes
-}
-
-impl LineIntersection {
-    pub fn to_bool_segment(self) -> bool {
-        match self {
-            LineIntersection::Yes => true,
-            _ => false,
-        }
-    }
-    pub fn to_bool_long_segment(self) -> bool {
-        match self {
-            LineIntersection::BeforeDirector(val) if val >= -1.0 => true,
-            LineIntersection::Yes => true,
-            _ => false, 
-        }
-    }
-}
-
-
 #[derive(Clone, Debug)]
 pub struct FixedRegularFace<const N:usize> {
     face:FixedConvexFace<N>,
@@ -258,6 +226,9 @@ impl<const N:usize> Add<Vec3Df> for FixedRegularFace<N> {
 pub type Triangle = FixedConvexFace<3>;
 
 impl Triangle {
+    pub fn get_plane(&self) -> VectorPlane {
+        VectorPlane::new(self.points[1] - self.points[0], self.points[2] - self.points[0], self.points[0])
+    }
     pub fn get_raster_rectangle(&self) -> Rectangle<i32> {
         Rectangle::new(
             self.points[0].x.min(self.points[1].x).min(self.points[2].x) as i32,
@@ -265,6 +236,103 @@ impl Triangle {
             self.points[0].x.max(self.points[1].x).max(self.points[2].x) as i32,
             self.points[0].y.max(self.points[1].y).max(self.points[2].y) as i32
         )
+    }
+}
+
+impl Intersection<Line3D> for Triangle {
+    type IntersectionType = LinePlaneIntersection;
+    fn intersect_with(&self, target:&Line3D) -> LinePlaneIntersection {
+        let vector_plane = self.get_plane();
+        let plane = vector_plane.to_equation_plane();
+        match plane.intersect_with(target) {
+            LinePlaneIntersection::Nothing => LinePlaneIntersection::Nothing,
+            LinePlaneIntersection::Line => LinePlaneIntersection::Line,
+            LinePlaneIntersection::Point(coef) => {
+                let point = target.get_point_at(coef);
+                let (dx, dy) = vector_plane.directors();
+                let orig = self.points[0];
+                let plane_point = (point - orig);
+                let (mut v1,mut v2) = (plane_point.component_div(&dx), plane_point.component_div(&dy));
+                v1.zero_out_nans();
+                v2.zero_out_nans();
+                let mut a = Coord::X;
+                let mut b = Coord::Y;
+                let mut other_member = 1.0;
+                'coord_search : for first_co in Coord::ALL_COORDS {
+                    if v1.co(first_co) != 0.0 {
+                        let others = first_co.get_others();
+                        for other in others {
+                            other_member = v2.co(other) - v2.co(first_co) * v1.co(other);
+                            if other_member != 0.0 {
+                                a = first_co;
+                                b = other;
+                                break 'coord_search; 
+                            }
+                        }
+                    }
+                }
+                let inv_v1a = 1.0/v1.co(a);
+                let k = (plane_point.co(b) - plane_point.co(a) * v1.co(b)*inv_v1a)/other_member;
+                let i = (plane_point.co(a) - k * v2.co(a))*inv_v1a;
+                // Not sure about this condition
+                if k >= 0.0 && i >= 0.0 && k.powi(2) + i.powi(2) <= 1.0 {
+                    LinePlaneIntersection::Point(coef)
+                }
+                else {
+
+                    LinePlaneIntersection::Nothing
+                }
+            }
+        }
+    }
+}
+
+impl Intersection<Triangle> for Triangle {
+    type IntersectionType = bool;
+    fn intersect_with(&self, target:&Triangle) -> Self::IntersectionType {
+        // big optimizations : use iterators for the lines, and reuse the plane for each triangle computed internally
+        let other_lines = target.get_lines();
+        for line in other_lines {
+            if self.intersect_with(&line).is_something() {
+                return true
+            }
+        }
+        let my_lines = self.get_lines();
+        for line in my_lines {
+            if target.intersect_with(&line).is_something() {
+                return true
+            }
+        }
+        false
+    }
+}
+
+impl Intersection<Sphere> for Triangle {
+    type IntersectionType = bool;
+    fn intersect_with(&self, target:&Sphere) -> Self::IntersectionType {
+        let eq_plane = self.get_plane().to_equation_plane();
+        let s_d = eq_plane.signed_distance(&target.origin);
+        if s_d.abs() <= target.radius {
+            let normal = eq_plane.get_normal();
+            let line = Line3D::new(target.origin, normal.normalise() * target.radius);
+            if self.intersect_with(&line).is_something() {
+                return true
+            }
+            else {
+                let mini_line = Line3D::new(target.origin, Vec3Df::all_ones() * target.radius * 0.01);
+                let my_lines = self.get_lines();
+                for my_line in my_lines {
+                    if my_line.calc_shortest_distance_between_director_segments(&mini_line) < target.radius {
+                        return true
+                    }
+                }
+                false
+            }
+
+        }
+        else {
+            false
+        }
     }
 }
 

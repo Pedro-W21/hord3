@@ -14,8 +14,19 @@ impl VectorPlane {
     pub fn new(v1:Vec3Df,v2:Vec3Df, origin:Vec3Df) -> Self {
         Self { v1, v2, origin }
     }
+    pub fn directors(&self) -> (Vec3Df, Vec3Df) {
+        (self.v1, self.v2)
+    }
+    pub fn origin(&self) -> Vec3Df {
+        self.origin
+    }
     pub fn get_normal(&self) -> Vec3Df {
         self.v1.cross(&self.v2)
+    }
+    pub fn to_equation_plane(&self) -> EquationPlane {
+        let normal = self.v1.cross(&self.v2);
+        let d = - (normal.x * self.origin.x + normal.y * self.origin.y + normal.z * self.origin.z);
+        EquationPlane { normal, d }
     }
 }
 
@@ -59,6 +70,12 @@ impl LinePlaneIntersection {
             LinePlaneIntersection::Line => 1.0,
             LinePlaneIntersection::Nothing => NAN,
             LinePlaneIntersection::Point(coef) => coef.0
+        }
+    }
+    pub fn is_something(&self) -> bool {
+        match self {
+            LinePlaneIntersection::Nothing => false,
+            _ => true
         }
     }
 }

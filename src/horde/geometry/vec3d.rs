@@ -11,6 +11,7 @@ pub enum Coord {
 }
 
 impl Coord {
+    pub const ALL_COORDS:[Coord ; 3] = [Coord::X, Coord::Y, Coord::Z];
     pub fn get_others(self) -> [Coord ; 2] {
         match self {
             Self::X => [Self::Y, Self::Z],
@@ -445,13 +446,23 @@ impl Vec3Df {
     pub fn mul_floor(&self, rhs:f32) -> Self {
         let mulled = self * rhs;
         Self { x: if mulled.x.is_sign_negative() {(mulled.x - 1.0).trunc()} else {mulled.x.trunc()}, y: if mulled.y.is_sign_negative() {(mulled.y - 1.0).trunc()} else {mulled.y.trunc()}, z: if mulled.z.is_sign_negative() {(mulled.z - 1.0).trunc()} else {mulled.z.trunc()} }
-    
     }
     pub fn norme(&self) -> f32 {
         (self.x.powi(2) + self.y.powi(2) + self.z.powi(2)).sqrt()
     }
     pub fn norme_square(&self) -> f32 {
         self.x.powi(2) + self.y.powi(2) + self.z.powi(2)
+    }
+    pub fn zero_out_nans(&mut self) {
+        if self.x.is_nan() {
+            self.x = 0.0;
+        }
+        if self.y.is_nan() {
+            self.y = 0.0;
+        }
+        if self.z.is_nan() {
+            self.z = 0.0;
+        }
     }
     pub fn normalise(&self) -> Vec3Df {
         let long = self.norme();

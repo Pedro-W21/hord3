@@ -5,7 +5,7 @@ pub enum DistanceResults {
     Parallel(f32, f32),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Line3D {
     origin: Vec3Df,
     director: Vec3Df,
