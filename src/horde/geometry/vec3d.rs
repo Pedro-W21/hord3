@@ -3,7 +3,7 @@ use std::{hash::Hash, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg,
 use to_from_bytes::{FromBytes, ToBytes};
 use to_from_bytes_derive::{FromBytes, ToBytes};
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ToBytes, FromBytes)]
 pub enum Coord {
     X,
     Y,
