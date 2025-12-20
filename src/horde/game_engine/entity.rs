@@ -1,4 +1,6 @@
 use crossbeam::channel::{unbounded, Receiver, Sender};
+use to_from_bytes::{FromBytes, ToBytes};
+use to_from_bytes_derive::{FromBytes, ToBytes};
 
 use crate::horde::utils::parallel_counter::ParallelCounter;
 
@@ -46,6 +48,31 @@ pub trait ComponentEvent<C:Component<ID>, ID:Identify>: Send + Sync + Clone {
     fn apply_to_component(self, components:&mut Vec<C>);
     fn get_source(&self) -> Option<ID>;
 }
+
+pub trait SimpleComponentUpdate<C:Component<ID>, ID:Identify>: Send + Sync + Clone + ToBytes + FromBytes {
+    fn apply_to_comp(self, component:&mut C);
+}
+#[derive(Clone, ToBytes, FromBytes)]
+pub struct SimpleComponentEvent<ID:Identify, SCU: Clone + ToBytes + FromBytes> {
+    source:Option<ID>,
+    id:EntityID,
+    update:SCU
+}
+
+impl<ID:Identify, C:Component<ID>, SCU:SimpleComponentUpdate<C, ID>> ComponentEvent<C, ID> for SimpleComponentEvent<ID, SCU> {
+    type ComponentUpdate = SCU;
+    fn get_id(&self) -> EntityID {
+        self.id
+    }
+    fn get_source(&self) -> Option<ID> {
+        self.source.clone()
+    }
+    fn apply_to_component(self, components:&mut Vec<C>) {
+        self.update.apply_to_comp(&mut components[self.id]);
+    }
+}
+
+
 
 pub trait StaticComponent:Send + Sync + Sized + Clone {
 
