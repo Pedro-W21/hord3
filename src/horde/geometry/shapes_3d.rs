@@ -11,7 +11,7 @@ use super::{rotation::Rotation, vec3d::Vec3Df};
 
 
 
-#[derive(Clone, ToBytes, FromBytes, Debug)]
+#[derive(Clone, ToBytes, FromBytes, Debug, PartialEq)]
 pub struct FixedPointCloud<const N:usize> {
     points:[Vec3Df ; N],
 }
