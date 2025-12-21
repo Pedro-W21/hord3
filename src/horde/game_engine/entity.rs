@@ -49,11 +49,11 @@ pub trait ComponentEvent<C:Component<ID>, ID:Identify>: Send + Sync + Clone {
     fn get_source(&self) -> Option<ID>;
 }
 
-pub trait SimpleComponentUpdate<C:Component<ID>, ID:Identify>: Send + Sync + Clone + ToBytes + FromBytes {
+pub trait SimpleComponentUpdate<C:Component<ID>, ID:Identify>: Send + Sync + Clone + ToBytes + FromBytes + PartialEq {
     fn apply_to_comp(self, component:&mut C);
 }
-#[derive(Clone, ToBytes, FromBytes)]
-pub struct SimpleComponentEvent<ID:Identify, SCU: Clone + ToBytes + FromBytes> {
+#[derive(Clone, ToBytes, FromBytes, PartialEq)]
+pub struct SimpleComponentEvent<ID:Identify, SCU: Clone + ToBytes + FromBytes + PartialEq> {
     source:Option<ID>,
     id:EntityID,
     update:SCU
