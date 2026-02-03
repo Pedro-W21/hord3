@@ -59,6 +59,12 @@ pub struct SimpleComponentEvent<ID:Identify, SCU: Clone + ToBytes + FromBytes + 
     update:SCU
 }
 
+impl<ID:Identify, SCU: Clone + ToBytes + FromBytes + PartialEq> SimpleComponentEvent<ID, SCU> {
+    pub fn new(id:EntityID, source:Option<ID>, update:SCU) -> Self {
+        Self { source, id, update }
+    }
+}
+
 impl<ID:Identify, C:Component<ID>, SCU:SimpleComponentUpdate<C, ID>> ComponentEvent<C, ID> for SimpleComponentEvent<ID, SCU> {
     type ComponentUpdate = SCU;
     fn get_id(&self) -> EntityID {

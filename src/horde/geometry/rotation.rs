@@ -4,6 +4,10 @@ use to_from_bytes_derive::{FromBytes, ToBytes};
 
 use super::vec3d::Vec3Df;
 
+
+/// Quaternion is a middle ground between Orientation and Rotation, it doesn't store all 3D rotation matrix coefficients as Rotation does, or angles as Orientation does
+/// 
+/// it is a representation of a Quaternion, which can be used to apply rotations to Vec3D structs directly. However, it computes the 3D rotation matrix for each rotation done this way, so it is recommended to use Orientation and Rotation instead for better performance as you rarely need to rotate only 1 Vec3D at a time
 #[derive(Clone, Copy)]
 pub struct Quaternion {
     w: f32,
@@ -57,6 +61,10 @@ impl Quaternion {
     }
 }
 
+
+/// Rotation is a representation of a 3D rotation matrix computed using Euler angles
+/// It is possible (and recommended) to use one Rotation to compute many transformations because Rotation contains the final computed forms of all coefficients in a 3D rotation matrix
+/// however, a Rotation is thrice as memory-intensive as an Orientation, and doesn't store its rotation angles in an easily used way, so between phases of compute, it is generally better to store Orientation structs instead of Rotations if possible
 #[derive(Debug, Clone, PartialEq, ToBytes, FromBytes)]
 pub struct Rotation {
     pub p1:Vec3Df,
@@ -114,7 +122,13 @@ impl Rotation {
         cloned
     }
 }
-
+/// Orientation is the standard type used to describe a 3D object's orientation compared to another set of axis
+/// To compute the rotation of one or many Vec3D structs based on an orientation, use Rotation::from_orientation and use the resulting Rotation for computing the transformations
+/// 
+/// As a reminder, when X is forward, Y is sideways and Z is up :
+/// - yaw is rotation around the Z axis
+/// - pitch is rotation around the Y axis
+/// - roll is rotation around the X axis
 #[derive(Clone, Copy, Debug, PartialEq, ToBytes, FromBytes)]
 pub struct Orientation {
     pub yaw: f32,

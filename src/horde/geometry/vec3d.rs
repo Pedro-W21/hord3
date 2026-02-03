@@ -3,6 +3,10 @@ use std::{hash::Hash, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg,
 use to_from_bytes::{FromBytes, ToBytes};
 use to_from_bytes_derive::{FromBytes, ToBytes};
 
+
+/// Coord is an enum used to specify a Vec3D axis, using Vec3D::co(&self, Coord), you can get the value associated with a given coordinate
+/// 
+/// This is useful for implementing axis-agnostic geometric computation 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ToBytes, FromBytes)]
 pub enum Coord {
     X,
@@ -58,10 +62,12 @@ impl Number for i32 {
     const ONE:Self = 1;
     const ZERO:Self = 0;
     fn get_analog_for_hash(&self) -> u64 {
-        unsafe {std::mem::transmute(*self as i64)}
+        (*self as i64).cast_unsigned()
     }
 }
 
+
+/// Vec3D is the recommended basic type for all 3D vector computation in Hord3, as most APIs expecting 3D geometry will depend on it at some level
 #[derive(Clone, Copy, Debug, PartialEq, ToBytes, FromBytes)]
 pub struct Vec3D<N:Number> {
     pub x: N,
