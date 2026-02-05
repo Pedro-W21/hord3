@@ -2,7 +2,7 @@ use std::{marker::PhantomData, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteG
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
 
-use crate::horde::rendering::RenderingBackend;
+use crate::horde::{game_engine::multiplayer::MustSync, rendering::RenderingBackend};
 
 use super::multiplayer::Identify;
 
@@ -15,7 +15,7 @@ pub trait World<ID:Identify>: Sized + Sync + Send + Clone {
 pub trait WorldEvent<W:World<ID>, ID:Identify>: Sized + Sync + Send + Clone {
     fn apply_event(self, world:&mut W);
     fn get_source(&self) -> Option<ID>;
-    fn should_sync(&self) -> bool;
+    fn should_sync(&self) -> MustSync;
 }
 
 #[derive(Clone)]
@@ -47,7 +47,7 @@ impl<W: World<ID>, ID:Identify> WorldHandler<W, ID> {
                         .map_events
                         .recv_timeout(Duration::from_nanos(10))
                     {
-                        if event.should_sync() {
+                        if event.should_sync().is_server() {
                             writer.push(event.clone());
                         }
                         all_writer.push(event.clone());
@@ -60,7 +60,7 @@ impl<W: World<ID>, ID:Identify> WorldHandler<W, ID> {
                         .map_events
                         .recv_timeout(Duration::from_nanos(10))
                     {
-                        if event.should_sync() {
+                        if event.should_sync().is_client()  {
                             writer.push(event.clone());
                         }
                         event.apply_event(&mut write_handler.world);

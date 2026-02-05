@@ -4,7 +4,7 @@ use crossbeam::channel::{unbounded, Sender};
 use engine_derive::GameEngine;
 use to_from_bytes::{FromBytes, ToBytes};
 
-use crate::{defaults::default_rendering::vectorinator::{Vectorinator, VectorinatorWrite}, horde::{game_engine::{engine::{GameEngine, MovingObjectID}, entity::{Entity, EntityID, EntityVec, MultiplayerEntity, Renderable}, multiplayer::{GlobalComponent, GlobalEvent, HordeEventReport, HordeMultiModeChoice, HordeMultiplayer, Identify, MultiplayerEngine}, world::{World, WorldComputeHandler, WorldEvent, WorldHandler, WorldOutHandler, WorldWriteHandler}}, geometry::vec3d::Vec3Df, rendering::RenderingBackend, scheduler::IndividualTask, sound::{ARWWaves, SoundRequest, WaveIdentification, WavePosition, WaveRequest, WaveSink, WavesHandler}}, tests::entity_derive_test::CoolEntityVecWrite};
+use crate::{defaults::default_rendering::vectorinator::{Vectorinator, VectorinatorWrite}, horde::{game_engine::{engine::{GameEngine, MovingObjectID}, entity::{Entity, EntityID, EntityVec, MultiplayerEntity, Renderable}, multiplayer::{GlobalComponent, GlobalEvent, HordeEventReport, HordeMultiModeChoice, HordeMultiplayer, Identify, MultiplayerEngine, MustSync}, world::{World, WorldComputeHandler, WorldEvent, WorldHandler, WorldOutHandler, WorldWriteHandler}}, geometry::vec3d::Vec3Df, rendering::RenderingBackend, scheduler::IndividualTask, sound::{ARWWaves, SoundRequest, WaveIdentification, WavePosition, WaveRequest, WaveSink, WavesHandler}}, tests::entity_derive_test::CoolEntityVecWrite};
 
 use super::{entity_derive_test::{CoolEntity, CoolEntityVecRead}, task_derive_test::SingleExtraData};
 use to_from_bytes_derive::{FromBytes, ToBytes};
@@ -22,8 +22,8 @@ impl<ID:Identify> WorldEvent<SinglePWorld, ID> for SinglePWorld {
     fn get_source(&self) -> Option<ID> {
         None
     }
-    fn should_sync(&self) -> bool {
-        true
+    fn should_sync(&self) -> MustSync {
+        MustSync::Both
     }
 }
 
