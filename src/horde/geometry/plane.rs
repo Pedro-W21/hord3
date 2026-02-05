@@ -2,6 +2,8 @@
 
 use std::f32::NAN;
 
+use to_from_bytes_derive::{FromBytes, ToBytes};
+
 use super::{line::{Line3D, LineCoef}, vec3d::Vec3Df, HordeFloat, Intersection};
 
 pub struct VectorPlane {
@@ -30,7 +32,8 @@ impl VectorPlane {
     }
 }
 
-#[derive(Clone)]
+
+#[derive(Clone, ToBytes, FromBytes, Debug, PartialEq)]
 pub struct EquationPlane {
     normal:Vec3Df,
     d:HordeFloat
