@@ -773,3 +773,26 @@ impl<ID:Identify, GE:GlobalEvent> HordeEventReport<ID, GE> {
     }
 }
 
+
+#[derive(Clone, ToBytes, FromBytes, Debug, PartialEq, Eq)]
+pub enum MustSync {
+    No,
+    Server,
+    Client,
+    Both
+}
+
+impl MustSync {
+    pub fn is_client(&self) -> bool {
+        match self {
+            MustSync::Both | MustSync::Client => true,
+            _ => false,
+        }
+    }
+    pub fn is_server(&self) -> bool {
+        match self {
+            MustSync::Both | MustSync::Server => true,
+            _ => false
+        }
+    }
+}

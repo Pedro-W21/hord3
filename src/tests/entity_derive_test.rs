@@ -3,7 +3,7 @@ use std::{collections::VecDeque, sync::{Arc, RwLock, RwLockReadGuard, RwLockWrit
 use entity_derive::{Entity};
 use to_from_bytes_derive::{FromBytes, ToBytes};
 
-use crate::{defaults::default_rendering::vectorinator::{meshes::{MeshID, MeshInstance}, VectorinatorWrite}, horde::{game_engine::{entity::{Component, ComponentEvent, EVecStopsIn, EVecStopsOut, Entity, EntityID, EntityVec, MultiplayerEntity, NewEntity, Renderable, StaticComponent, StaticEntity}, multiplayer::Identify, position::EntityPosition, static_type_id::HasStaticTypeID}, geometry::{rotation::{Orientation, Rotation}, vec3d::Vec3Df}, utils::ARW}};
+use crate::{defaults::default_rendering::vectorinator::{VectorinatorWrite, meshes::{MeshID, MeshInstance}}, horde::{game_engine::{entity::{Component, ComponentEvent, EVecStopsIn, EVecStopsOut, Entity, EntityID, EntityVec, MultiplayerEntity, NewEntity, Renderable, StaticComponent, StaticEntity}, multiplayer::{Identify, MustSync}, position::EntityPosition, static_type_id::HasStaticTypeID}, geometry::{rotation::{Orientation, Rotation}, vec3d::Vec3Df}, utils::ARW}};
 
 #[derive(Clone, PartialEq, Eq, ToBytes, FromBytes)]
 pub struct CoolComponent {

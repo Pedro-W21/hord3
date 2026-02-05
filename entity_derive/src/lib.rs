@@ -148,12 +148,12 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                 #[derive(Clone, to_from_bytes_derive::ToBytes, to_from_bytes_derive::FromBytes, PartialEq)]
                 pub struct #gen_new_ent_type<ID:Identify> {
                     #(#used_new_components:#used_new_types),* ,
-                    must_be_synced:bool,
+                    must_be_synced:MustSync,
                     created_by:Option<ID>
                 }
 
                 impl<ID:Identify> #gen_new_ent_type<ID> {
-                    pub fn new(#(#used_new_components:#used_new_types),*, must_be_synced:bool, created_by:Option<ID>) -> Self {
+                    pub fn new(#(#used_new_components:#used_new_types),*, must_be_synced:MustSync, created_by:Option<ID>) -> Self {
                         Self {
                             #(#used_new_components),* ,
                             must_be_synced,
@@ -188,12 +188,12 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                 }
 
                 pub struct #event_type_id<T> {
-                    pub must_be_synced:bool,
+                    pub must_be_synced:MustSync,
                     pub event:T,
                 }
 
                 impl<T> #event_type_id<T> {
-                    pub fn new(must_be_synced:bool, event:T) -> Self {
+                    pub fn new(must_be_synced:MustSync, event:T) -> Self {
                         Self {must_be_synced, event}
                     }
                 }
@@ -237,7 +237,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                         #(
                             {
                                 while let Ok(event) = self.tunnels_in.#tunnel_in_components.recv_timeout(std::time::Duration::from_nanos(10)) {
-                                    if event.must_be_synced {
+                                    if event.must_be_synced.is_server() {
                                         to_sync_write.push(#sync_event_enum_id::#arw_components(event.event.clone()));
                                     }
                                     all_events_write.push(#sync_event_enum_id::#arw_components(event.event.clone()));
@@ -249,7 +249,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                             while let Ok(ent) = self.tunnels_in.new_ents.recv_timeout(std::time::Duration::from_nanos(10)) {
                                 let new_id = write_handler.new_ent(ent.clone());
                                 all_events_write.push(#sync_event_enum_id::NewEnt{made_by: ent.created_by.clone(), ent:ent.clone(), new_id});
-                                if ent.must_be_synced {
+                                if ent.must_be_synced.is_server() {
                                     
                                     to_sync_write.push(#sync_event_enum_id::NewEnt{made_by: ent.created_by.clone(), ent, new_id});
                                 }
@@ -260,7 +260,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                         #(
                             {
                                 while let Ok(event) = self.tunnels_in.#tunnel_in_components.recv_timeout(std::time::Duration::from_nanos(10)) {
-                                    if event.must_be_synced {
+                                    if event.must_be_synced.is_client() {
                                         to_sync_write.push(#sync_event_enum_id::#arw_components(event.event.clone()));
                                     }
                                     <<#arw_types as Component<ID>>::CE as ComponentEvent<#arw_types, ID>>::apply_to_component(event.event.clone(), &mut write_handler.#arw_components);
@@ -269,7 +269,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                         );* ;
                         {
                             while let Ok(ent) = self.tunnels_in.new_ents.recv_timeout(std::time::Duration::from_nanos(10)) {
-                                if ent.must_be_synced {
+                                if ent.must_be_synced.is_client() {
                                     let new_id = write_handler.new_ent(ent.clone());
                                     to_sync_write.push(#sync_event_enum_id::NewEnt{made_by: ent.created_by.clone(), ent, new_id});
                                 }

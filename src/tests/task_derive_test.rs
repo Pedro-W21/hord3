@@ -3,7 +3,7 @@ use std::{f32::consts::PI, net::Ipv4Addr, path::PathBuf, str::FromStr, sync::{at
 use cosmic_text::{Color, Metrics};
 use task_derive::HordeTask;
 
-use crate::{defaults::{default_frontends::minifb_frontend::MiniFBWindow, default_rendering::vectorinator::{meshes::{Mesh, MeshID, MeshInstance, MeshLOD, MeshLODS, MeshLODType, MeshTriangles, TrianglePoint}, textures::rgb_to_argb, Vectorinator}, default_ui::simple_ui::{SimpleUI, TextCentering, UIDimensions, UIElement, UIElementBackground, UIElementContent, UIElementID, UIEvent, UIUnit, UIUserAction, UIVector, UserEvent}}, horde::{frontend::{HordeWindowDimensions, SyncUnsafeHordeFramebuffer, WindowingHandler}, game_engine::{multiplayer::HordeMultiModeChoice, world::WorldHandler}, geometry::{rotation::Orientation, vec3d::Vec3Df}, rendering::{camera::Camera, framebuffer::HordeColorFormat}, scheduler::{HordeScheduler, HordeTask, HordeTaskData, HordeTaskHandler, HordeTaskQueue, HordeTaskSequence, IndividualTask, SequencedTask}, sound::{ARWWaves, SoundRequest, WaveIdentification, WavePosition, WaveRequest, WaveSink, Waves, WavesHandler}}};
+use crate::{defaults::{default_frontends::minifb_frontend::MiniFBWindow, default_rendering::vectorinator::{Vectorinator, meshes::{Mesh, MeshID, MeshInstance, MeshLOD, MeshLODS, MeshLODType, MeshTriangles, TrianglePoint}, textures::rgb_to_argb}, default_ui::simple_ui::{SimpleUI, TextCentering, UIDimensions, UIElement, UIElementBackground, UIElementContent, UIElementID, UIEvent, UIUnit, UIUserAction, UIVector, UserEvent}}, horde::{frontend::{HordeWindowDimensions, SyncUnsafeHordeFramebuffer, WindowingHandler}, game_engine::{multiplayer::{HordeMultiModeChoice, MustSync}, world::WorldHandler}, geometry::{rotation::Orientation, vec3d::Vec3Df}, rendering::{camera::Camera, framebuffer::HordeColorFormat}, scheduler::{HordeScheduler, HordeTask, HordeTaskData, HordeTaskHandler, HordeTaskQueue, HordeTaskSequence, IndividualTask, SequencedTask}, sound::{ARWWaves, SoundRequest, WaveIdentification, WavePosition, WaveRequest, WaveSink, Waves, WavesHandler}}};
 
 use super::{engine_derive_test::{TestEngineBase, TestWorld}, entity_derive_test::{CoolComponent, CoolEntityVec, NewCoolEntity}, single_player_engine_test::{SinglePEngine, SinglePEngineBase, SinglePWorld}};
 
@@ -58,7 +58,7 @@ pub fn singleplayer_test() {
     let world = SinglePWorld { test: 1};
     let entity_vec = CoolEntityVec::new(1000);
     {
-        entity_vec.get_write().new_ent(NewCoolEntity::new(CoolComponent {pos:Vec3Df::zero()}, false, None));
+        entity_vec.get_write().new_ent(NewCoolEntity::new(CoolComponent {pos:Vec3Df::zero()}, MustSync::No, None));
     }
     
     let windowing = WindowingHandler::new::<MiniFBWindow>(HordeWindowDimensions::new(1280, 720), HordeColorFormat::ARGB8888);
