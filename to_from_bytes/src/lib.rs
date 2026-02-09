@@ -1,5 +1,5 @@
 #![feature(sync_unsafe_cell)]
-use std::{fs::File, io::{ErrorKind, Read, Write}, net::TcpStream, path::PathBuf};
+use std::{fs::File, io::{Error, ErrorKind, Read, Write}, net::TcpStream, path::PathBuf};
 
 
 
@@ -182,7 +182,7 @@ pub fn save_type<T:ToBytes>(path:PathBuf, data:T) -> bool { // succeeded
     succeeded
 }
 
-pub fn decode_from_tcp<const BLOCKING:bool, T:FromBytes + ToBytes>(decoder:&mut T::Decoder, tcp:&mut TcpStream, tcp_buffer:&mut Vec<u8>, decoding_bytes:&mut Vec<u8>) -> Vec<T> {
+pub fn decode_from_tcp<const BLOCKING:bool, T:FromBytes + ToBytes>(decoder:&mut T::Decoder, tcp:&mut TcpStream, tcp_buffer:&mut Vec<u8>, decoding_bytes:&mut Vec<u8>) -> Result<Vec<T>, Error> {
     let mut all_decoded = Vec::with_capacity(1);
     if !BLOCKING {
         loop {
@@ -192,10 +192,10 @@ pub fn decode_from_tcp<const BLOCKING:bool, T:FromBytes + ToBytes>(decoder:&mut 
                     all_decoded.append(&mut decoder.decode_multiple_from_slice(decoding_bytes, &tcp_buffer[..bytes_read]));
                 },
                 Err(error) if error.kind() == ErrorKind::WouldBlock => break,
-                Err(error) => panic!("Error while decoding from tcp {}", error),
+                Err(error) => return Err(error),
             }
         }
     }
     //println!("Decoded : {}", all_decoded.len());
-    all_decoded
+    Ok(all_decoded)
 }
