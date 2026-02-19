@@ -662,12 +662,13 @@ impl<ME:MultiplayerEngine + 'static> HordeClientTcp<ME> {
             println!("[Multiplayer client] Reading events from server");
             let events = decode_from_tcp::<false, HordeMultiplayerPacket<ME>>(&mut local_decoder, &mut stream, &mut local_tcp_buffer, &mut local_decode_buffer);
             if let Ok(events) = events {
-                for event in events {
+                'event_read: for event in events {
                     match event {
                         HordeMultiplayerPacket::ThatsUrPlayerID(new_id, tick) => {
                             id = new_id;
                             given_id = true;
                             tickrate = tick;
+                            break 'event_read;
                         },
                         _ => panic!("Server didn't do the right handshake")
                     }
