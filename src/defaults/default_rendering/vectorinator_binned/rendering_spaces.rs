@@ -1,4 +1,4 @@
-use std::{ops::Deref, simd::{Simd, SupportedLaneCount}};
+use std::{ops::Deref, simd::{Simd}};
 
 use crate::horde::geometry::{plane::EquationPlane, rotation::Rotation, vec3d::Vec3Df, HordeFloat};
 

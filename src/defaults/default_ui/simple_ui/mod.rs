@@ -401,24 +401,17 @@ impl<'a, UE:UserEvent> SimpleUIRead<'a, UE> {
                     
                     //dbg!(text.clone());
                     let mut buffer = Buffer::new(&mut self.font_system, metrics);
-                    Align::Center;
                     let mut buffer = buffer.borrow_with(&mut self.font_system);
                     
-                    
                     let attrs = Attrs::new().family(Family::Cursive);
-                    //println!("{}", text.clone());
                     buffer.set_text(&text.as_str(), attrs, cosmic_text::Shaping::Advanced);
                     let mut add_vertical = 0;
-                    let mut print_pixels = false;
                     match centering {
                         TextCentering::Both => {
                             for line in &mut buffer.lines {
-                                //dbg!(line.align());
-                                //line.set_align(None);
                                 line.set_align(Some(Align::Center));
                             }
                             add_vertical = content_dims.y/2 - (((text.trim().lines().into_iter().size_hint().0 as f32) * 0.5) * metrics.line_height) as i32 - metrics.line_height as i32;
-                            print_pixels = true;
                         },
                         _ => ()
                     }
@@ -427,11 +420,7 @@ impl<'a, UE:UserEvent> SimpleUIRead<'a, UE> {
                     buffer.shape_until_scroll(true);
                     
                     buffer.draw(&mut self.cache, color, |x,y,width,height, color| {
-                        //data[(x + start_of_content.x as i32) as usize + ((y + start_of_content.y as i32) * outside_dims.x) as usize] = rgb_to_argb((color.r(), color.g(), color.b()));
                         let buffer_pos = (x + start_of_content.x as i32) as usize + ((y + start_of_content.y + add_vertical as i32) * outside_dims.x) as usize;
-                        //if print_pixels {
-                            //dbg!(x, y);
-                        //}
                         if buffer_pos < data.len() {
                             let rgba_color = {
                                 let r0 = color.r() as f32/255.0;
@@ -456,14 +445,7 @@ impl<'a, UE:UserEvent> SimpleUIRead<'a, UE> {
                                 }
                             }
                         }
-                        
-                        
-                        //println!("{} {} {} {}", x, y, width, height);
-                        
                     });
-                    //if print_pixels {
-                    //    panic!("LOOKATIT");
-                    //}
                 }
             },
             None => ()
