@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 crossbeam = "0.8.4"
-minifb = "0.26.0"
+minifb = "0.28.0"
 entity_derive = { path = "entity_derive" }
 engine_derive = { path = "engine_derive" }
 task_derive = { path = "task_derive" }
