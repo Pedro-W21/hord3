@@ -66,6 +66,7 @@ impl HordeWindow for MiniFBWindow {
                 Key::Minus => Button::Minus,
                 _ => Button::RShift
             };
+            println!("[windowing] got button {:?} pressed", button_pressed.clone());
             events.push(WindowingEvent::new(WindowingEventVariant::KeyPress(button_pressed)));
             
         }

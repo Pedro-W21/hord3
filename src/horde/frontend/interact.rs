@@ -53,7 +53,7 @@ const ALL_BUTTONS: [Button; 47] = [
     Button::Minus
 ];
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub enum Button {
     A,
     Z,
