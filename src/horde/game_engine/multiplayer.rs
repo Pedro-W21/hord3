@@ -497,6 +497,18 @@ impl<ME:MultiplayerEngine + 'static> HordeMultiplayer<ME> {
             HordeMultiplayerMode::Client(client_data) => client_data.tickrate
         }
     }
+    pub fn get_client_id(&self) -> Option<usize> {
+        match &self.mode {
+            HordeMultiplayerMode::Client(client_data) => client_data.id,
+            HordeMultiplayerMode::Server(_) => panic!("No single client ID on server")
+        }
+    }
+    pub fn get_highest_client_id(&self) -> usize {
+        match &self.mode {
+            HordeMultiplayerMode::Server(server_data) => server_data.player_id_generator.load(Ordering::Relaxed),
+            HordeMultiplayerMode::Client(_) => panic!("No single client ID on client, only its own")
+        }
+    }
     /// Call first as server
     pub fn handshakes_players_events(&mut self, engine:&mut ME) {
         // println!("SERVER : HANDSHAKES");

@@ -19,7 +19,7 @@ fastrand = "2.1.1"
 cosmic-text = "0.12.1"
 rodio = "0.19.0"
 winit = "0.30.5"
-softbuffer = "0.4.6"
+softbuffer = "0.4.8"
 
 [profile.release]
 lto = "fat"
