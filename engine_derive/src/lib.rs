@@ -4,7 +4,7 @@ use proc_macro::{Span, TokenStream};
 use quote::{quote, __private::Span as OtherSpan};
 use syn::{self, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields::{self, *}, FieldsNamed, FieldsUnnamed, Ident, Lit, LitInt, Meta, Path, Type, __private::TokenStream2};
 
-#[proc_macro_derive(GameEngine, attributes(not_rendered, rendering_engine, rendering_engine_generic, not_multiplayer, do_multiplayer, extra_data))] 
+#[proc_macro_derive(GameEngine, attributes(not_rendered, rendering_engine, rendering_engine_generic, not_multiplayer, do_multiplayer, extra_data, tick_stages))] 
 pub fn derive_engine(input: TokenStream) -> TokenStream {
     // Construct a representation of Rust code as a syntax tree
     // that we can manipulate
@@ -43,6 +43,8 @@ fn derive_engine_on_struct(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNam
     let mut rendering_engine = None;
     let mut do_multiplayer = false;
 
+    let mut tick_stages: usize = 2;
+
     for attr in &ast.attrs {
         if attr.path.is_ident(&Ident::new("do_multiplayer", OtherSpan::call_site())) {
             do_multiplayer = true;
@@ -78,7 +80,15 @@ fn derive_engine_on_struct(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNam
                                         },
                                         _ => panic!("rendering engine type has to be a string"),
                                     },
-    
+                                    "tick_stages" => match name_value.lit {
+                                        Lit::Int(value) => {
+                                            tick_stages = value.base10_parse().expect("Should be integer");
+                                            if tick_stages == 0 {
+                                                panic!("Number of stages should be a strictly positive integer")
+                                            }
+                                        },
+                                        _ => panic!("Number of stages should be an integer")
+                                    }
                                     _ => ()
                                 }
                             },
@@ -156,7 +166,8 @@ fn derive_engine_on_struct(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNam
             multiplayer_ents,
             multiplayer_ents_types,
             extra_data,
-            extra_data_type
+            extra_data_type,
+            tick_stages
         },
         None => panic!("No world type for engine, aborting codegen")
     };
@@ -177,7 +188,8 @@ struct UserGivenData {
     multiplayer_ents:Vec<Ident>,
     multiplayer_ents_types:Vec<Type>,
     extra_data:Option<Ident>,
-    extra_data_type:Option<Type>
+    extra_data_type:Option<Type>,
+    tick_stages:usize
 }
 
 fn create_engine(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed, user_data:&UserGivenData) -> TokenStream2 {
@@ -282,6 +294,8 @@ fn create_engine(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed, user_d
         
     }
     let mut total_id_ident = Ident::new(format!("{}TID", user_data.engine_ident.to_string().trim()).trim(), OtherSpan::call_site());
+
+    
     let (multiplayer_struct_addon, multiplayer_type_ident, multiplayer_func, multiplayer_task, multiplayer_creator, total_id_definition, total_id_struct_ident, world_multiplayer_handling, multiplayer_new_addon, entity_multiplayer_handling) = if user_data.multiplayer_ents.len() > 0 {
         
         let mut total_id_ident = Ident::new(format!("{}TID", user_data.engine_ident.to_string().trim()).trim(), OtherSpan::call_site());
@@ -670,6 +684,35 @@ fn create_engine(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed, user_d
         )
     };
 
+    let tick_stages = user_data.tick_stages;
+    let mut stage_method_idents = Vec::with_capacity(tick_stages);
+    let mut stage_task_idents = Vec::with_capacity(tick_stages);
+    let mut tick_stage_methods = Vec::with_capacity(tick_stages);
+    for i in 0..tick_stages {
+        let stage_method_ident = Ident::new(format!("do_stage_{i}").trim(), OtherSpan::call_site());
+        stage_method_idents.push(stage_method_ident.clone());
+        let stage_func_ident = Ident::new(format!("stage_{i}").trim(), OtherSpan::call_site());
+        stage_task_idents.push(Lit::Int(LitInt::new(&format!("{}", i + 100).trim(), OtherSpan::call_site())));
+        tick_stage_methods.push(quote! {
+            fn #stage_method_ident(&self) {
+                #(
+                    let #entity_handler_names = self.#ent_idents.get_read()
+                );*;
+                let #world_handler_name = WorldComputeHandler::from_world_handler(&self.#world_id);
+                #(
+                    let mut counter = self.#ent_idents.stops.iteration_counter.clone();
+                    counter.update_len(#entity_handler_names.get_expected_len());
+                    
+                    counter.initialise();
+                    for ent in counter {
+                        // println!("{}", ent);
+                        #stage_func_ident(EntityTurn::#ent_idents, ent, #all_handlers, & #world_handler_name, #extra_func_get_addon)
+                    }
+                );*;
+            }
+        });
+    }
+
     let gen = quote! {
 
         #[derive(Eq, PartialEq, Hash, to_from_bytes_derive::ToBytes, to_from_bytes_derive::FromBytes, Clone)]
@@ -739,10 +782,11 @@ fn create_engine(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed, user_d
             fn do_task(&mut self, task_id:usize, thread_number:usize, number_of_threads:usize) {
                 match task_id {
                     0 => self.apply_all_events(),
-                    1 => self.main_tick(),
-                    2 => self.after_main_tick(),
                     #rendering_task
                     #multiplayer_task
+                    #(
+                        #stage_task_idents => self.#stage_method_idents()
+                    ),*,
                     _ => panic!("No task ids after 4"),
                 }
             }
@@ -778,36 +822,9 @@ fn create_engine(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed, user_d
                 );*;
                 self.#world_id.update_number_of_threads(number_of_threads, thread_number);
             }
-            fn main_tick(&self) {
-                #(
-                    let #entity_handler_names = self.#ent_idents.get_read()
-                );*;
-                let #world_handler_name = WorldComputeHandler::from_world_handler(&self.#world_id);
-                #(
-                    let mut counter = self.#ent_idents.stops.iteration_counter.clone();
-                    counter.update_len(#entity_handler_names.get_expected_len());
-                    
-                    counter.initialise();
-                    for ent in counter {
-                        // println!("{}", ent);
-                        compute_tick(EntityTurn::#ent_idents, ent, #all_handlers, & #world_handler_name, #extra_func_get_addon)
-                    }
-                );*;
-            }
-            fn after_main_tick(&self) {
-                #(
-                    let #entity_handler_names = self.#ent_idents.get_read()
-                );*;
-                let #world_handler_name = WorldComputeHandler::from_world_handler(&self.#world_id);
-                #(
-                    let mut counter = self.#ent_idents.stops.iteration_counter.clone();
-                    counter.update_len(#entity_handler_names.get_expected_len());
-                    counter.initialise();
-                    for ent in counter {
-                        after_main_tick(EntityTurn::#ent_idents, ent, #all_handlers, & #world_handler_name, #extra_func_get_addon)
-                    }
-                );*;
-            }
+            #(
+            #tick_stage_methods
+            )*
         }
 
         pub enum EntityTurn {

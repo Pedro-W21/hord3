@@ -1,4 +1,4 @@
-use std::{cell::SyncUnsafeCell, f32::INFINITY, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard}, thread, time::Duration};
+use std::{cell::SyncUnsafeCell, f32::INFINITY, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, mpmc::{self, Receiver, Sender}}, thread, time::Duration};
 
 use bins::{Bins, PreCalcdData};
 use meshes::{EitherOrNone, MeshID, Meshes, MeshesRead, MeshesWrite};
@@ -9,7 +9,7 @@ use textures::{rgb_to_argb, Textures};
 use threading_utils::utils::step_sync::StepSync;
 use triangles::{LessAllocTransformedMesh, SingleFullTriangle, TransformedMesh};
 
-use crate::horde::{frontend::{HordeWindowDimensions, SyncUnsafeHordeFramebuffer}, geometry::{plane::EquationPlane, rotation::{Orientation, Rotation}, vec3d::{Vec3D, Vec3Df}}, rendering::{camera::Camera, framebuffer::HordeColorFormat, RenderingBackend}, scheduler::IndividualTask, utils::parallel_counter::ParallelCounter};
+use crate::{defaults::default_rendering::vectorinator_binned::meshes::{Mesh, MeshInstance}, horde::{frontend::{HordeWindowDimensions, SyncUnsafeHordeFramebuffer}, geometry::{plane::EquationPlane, rotation::{Orientation, Rotation}, vec3d::{Vec3D, Vec3Df}}, rendering::{RenderingBackend, camera::Camera, framebuffer::HordeColorFormat}, scheduler::IndividualTask, utils::parallel_counter::ParallelCounter}};
 
 pub mod meshes;
 pub mod rendering_spaces;
@@ -38,7 +38,9 @@ pub struct Vectorinator<SD:ShaderData> {
     pub shader_data:Arc<SD>,
     step_sync:StepSync,
     shader_step_sync:StepSync,
-    shader_counter:ParallelCounter
+    shader_counter:ParallelCounter,
+    rendering_event_sender:Sender<RenderingEvent>,
+    rendering_event_receiver:Receiver<RenderingEvent>
 }
 
 pub struct VectorinatorRead<'a, SD:ShaderData> {
@@ -172,7 +174,8 @@ pub fn get_mip_map<'a>(data:&mut InternalRasterisationData<'a>, triangle:&Single
 impl<SD:ShaderData> Vectorinator<SD> {
     pub fn new(framebuf:Arc<RwLock<SyncUnsafeHordeFramebuffer>>, shader_data:Arc<SD>) -> Self {
         let (width, height) = (framebuf.read().unwrap().get_dims().get_width(), framebuf.read().unwrap().get_dims().get_height());
-        Self {empty_nbuf:Arc::new(vec![0; width * height]),nbuf:Arc::new(RwLock::new(SyncUnsafeCell::new(vec![0; width * height]))), shader_counter:ParallelCounter::new(width * height, width),shader_data,shader_step_sync:StepSync::new(),step_sync:StepSync::new(),bins:Arc::new(Bins::new(framebuf.clone().read().unwrap().get_dims(), 20)), color_vec:Arc::new(RwLock::new(vec![0 ; width * height])), empty_zbuf:Arc::new(vec![INFINITY ; width * height]),internal_framebuf:Arc::new(RwLock::new(SyncUnsafeHordeFramebuffer::new(HordeWindowDimensions::new(width, height), HordeColorFormat::ARGB8888))),framebuf, zbuf:Arc::new(RwLock::new(SyncUnsafeCell::new(vec![0.0; width * height]))), meshes:Meshes::new(1000, 5), textures:Arc::new(RwLock::new(Textures::new())), latest_camera:Arc::new(RwLock::new(Camera::empty())) }
+        let (ev_send, ev_recv) = mpmc::channel();
+        Self {rendering_event_sender:ev_send,rendering_event_receiver:ev_recv,empty_nbuf:Arc::new(vec![0; width * height]),nbuf:Arc::new(RwLock::new(SyncUnsafeCell::new(vec![0; width * height]))), shader_counter:ParallelCounter::new(width * height, width),shader_data,shader_step_sync:StepSync::new(),step_sync:StepSync::new(),bins:Arc::new(Bins::new(framebuf.clone().read().unwrap().get_dims(), 20)), color_vec:Arc::new(RwLock::new(vec![0 ; width * height])), empty_zbuf:Arc::new(vec![INFINITY ; width * height]),internal_framebuf:Arc::new(RwLock::new(SyncUnsafeHordeFramebuffer::new(HordeWindowDimensions::new(width, height), HordeColorFormat::ARGB8888))),framebuf, zbuf:Arc::new(RwLock::new(SyncUnsafeCell::new(vec![0.0; width * height]))), meshes:Meshes::new(1000, 5), textures:Arc::new(RwLock::new(Textures::new())), latest_camera:Arc::new(RwLock::new(Camera::empty())) }
     }
     pub fn get_read<'a>(&'a self) -> VectorinatorRead<'a, SD> {
         VectorinatorRead {empty_nbuf:&self.empty_nbuf, nbuf:self.nbuf.read().unwrap(),internal_framebuf:self.internal_framebuf.read().unwrap(),shader_data:self.shader_data.clone(),shader_counter:self.shader_counter.clone(),shader_step_sync:self.shader_step_sync.clone(),step_sync:self.step_sync.clone(), bins:self.bins.clone(),color_vec:self.color_vec.read().unwrap(), empty_zbuf:&self.empty_zbuf, framebuf: self.framebuf.read().unwrap(), zbuf: self.zbuf.read().unwrap(), meshes: self.meshes.get_read(), textures: self.textures.read().unwrap(), camera:self.latest_camera.read().unwrap() }
@@ -183,6 +186,9 @@ impl<SD:ShaderData> Vectorinator<SD> {
     pub fn tick_all_sets(&self) {
         let mut textures_write = self.textures.write().unwrap();
         textures_write.tick_all_sets();
+    }
+    pub fn get_event_sender(&self) -> Sender<RenderingEvent> {
+        self.rendering_event_sender.clone()
     }
     pub fn get_viewport_data(&self) -> ViewportData {
         let cam = self.latest_camera.read().unwrap();
@@ -210,6 +216,40 @@ pub struct VectorinatorWrite<'a> {
     pub meshes:MeshesWrite<'a>,
     pub textures:RwLockWriteGuard<'a, Textures>,
     pub camera:RwLockWriteGuard<'a, Camera>
+}
+
+impl<'a> VectorinatorWrite<'a> {
+    fn apply_events(&mut self, events:Receiver<RenderingEvent>) {
+        while let Ok(event) = events.try_recv() {
+            event.response_sender.send(self.handle_update(event.update)).unwrap();
+        }
+    }
+
+    fn handle_update(&mut self, update:RenderingUpdate) -> Result<RenderingResponse, ()> {
+        match update {
+            RenderingUpdate::AddMesh(mesh) => {
+                Ok(RenderingResponse::MeshID(MeshID::Referenced(self.meshes.add_mesh(mesh))))
+            },
+            RenderingUpdate::AddInstance { instance, for_vec } => {
+                Ok(RenderingResponse::InstanceID(self.meshes.add_instance(instance, for_vec)))
+            },
+            RenderingUpdate::SetMesh(mesh_id, mesh) => {
+                self.meshes.set_mesh(&mesh_id, mesh);
+                Ok(RenderingResponse::MeshID(mesh_id))
+            },
+            RenderingUpdate::UpdateInstance { for_vec, index, update:instance_update } => {
+                let instance = self.meshes.instances[for_vec].get_instance_mut(index);
+                match instance_update {
+                    MeshInstanceUpdate::ChangeVisibility(new_vis) => instance.change_visibility(new_vis),
+                    MeshInstanceUpdate::UpdatePositions(pos, orient) => {
+                        instance.change_pos(pos);
+                        instance.change_orient(orient);
+                    }
+                }
+                Ok(RenderingResponse::InstanceID(index))
+            }
+        }
+    }
 }
 
 impl<SD:ShaderData> IndividualTask for Vectorinator<SD> {
@@ -243,8 +283,35 @@ impl<SD:ShaderData> IndividualTask for Vectorinator<SD> {
                 let reader = self.get_read();
                 reader.framebuf.change_phase();
             },
+            6 => { // only one thread
+                let mut writer = self.get_write();
+                writer.apply_events(self.rendering_event_receiver.clone());
+            }
 
             _ => panic!("NO TASK ID BIGGER THAN 4")
         }
     }
+}
+
+
+pub struct RenderingEvent {
+    response_sender:Sender<Result<RenderingResponse, ()>>,
+    update:RenderingUpdate,
+}
+
+pub enum RenderingUpdate {
+    AddMesh(Mesh),
+    SetMesh(MeshID, Mesh),
+    AddInstance {instance:MeshInstance, for_vec:usize},
+    UpdateInstance {for_vec:usize, index:usize, update:MeshInstanceUpdate}
+}
+
+pub enum MeshInstanceUpdate {
+    ChangeVisibility(bool),
+    UpdatePositions(Vec3Df, Orientation)
+}
+
+pub enum RenderingResponse {
+    MeshID(MeshID),
+    InstanceID(usize)
 }

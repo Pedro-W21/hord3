@@ -52,7 +52,7 @@ impl RenderingBackend for TestRB {
     type RenderingStatusUpdate = usize;
 }
 
-pub fn after_main_tick<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, TestEngineTID>, world_read: &WorldComputeHandler<'a, TestWorld, TestEngineTID>, extra_data:&usize) {
+pub fn stage_1<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, TestEngineTID>, world_read: &WorldComputeHandler<'a, TestWorld, TestEngineTID>, extra_data:&usize) {
     println!("TEST AFTER MAIN");
     match turn {
         EntityTurn::ent1 => {
@@ -61,7 +61,7 @@ pub fn after_main_tick<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecR
     }
 }
 
-pub fn compute_tick<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, TestEngineTID>, world_read: &WorldComputeHandler<'a, TestWorld, TestEngineTID>, extra_data:&usize) {
+pub fn stage_0<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, TestEngineTID>, world_read: &WorldComputeHandler<'a, TestWorld, TestEngineTID>, extra_data:&usize) {
     println!("TEST COMPUTE");
 }
 

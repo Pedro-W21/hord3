@@ -3,7 +3,7 @@ use std::{f32::consts::PI, net::Ipv4Addr, path::PathBuf, str::FromStr, sync::{at
 use cosmic_text::{Color, Metrics};
 use task_derive::HordeTask;
 
-use crate::{defaults::{default_frontends::minifb_frontend::MiniFBWindow, default_rendering::vectorinator::{Vectorinator, meshes::{Mesh, MeshID, MeshInstance, MeshLOD, MeshLODS, MeshLODType, MeshTriangles, TrianglePoint}, textures::rgb_to_argb}, default_ui::simple_ui::{SimpleUI, TextCentering, UIDimensions, UIElement, UIElementBackground, UIElementContent, UIElementID, UIEvent, UIUnit, UIUserAction, UIVector, UserEvent}}, horde::{frontend::{HordeWindowDimensions, SyncUnsafeHordeFramebuffer, WindowingHandler}, game_engine::{multiplayer::{HordeMultiModeChoice, MustSync}, world::WorldHandler}, geometry::{rotation::Orientation, vec3d::Vec3Df}, rendering::{camera::Camera, framebuffer::HordeColorFormat}, scheduler::{HordeScheduler, HordeTask, HordeTaskData, HordeTaskHandler, HordeTaskQueue, HordeTaskSequence, IndividualTask, SequencedTask}, sound::{ARWWaves, SoundRequest, WaveIdentification, WavePosition, WaveRequest, WaveSink, Waves, WavesHandler}}};
+use crate::{defaults::{default_frontends::minifb_frontend::MiniFBWindow, default_rendering::vectorinator::{Vectorinator, meshes::{Mesh, MeshID, MeshInstance, MeshLOD, MeshLODS, MeshLODType, MeshTriangles, TrianglePoint}, textures::rgb_to_argb}, default_ui::simple_ui::{SimpleUI, TextCentering, UIDimensions, UIElement, UIElementBackground, UIElementContent, UIElementID, UIEvent, UIUnit, UIUserAction, UIVector, UserEvent}}, horde::{frontend::{HordeWindowDimensions, SyncUnsafeHordeFramebuffer, WindowingHandler}, game_engine::{multiplayer::{HordeMultiModeChoice, MustSync}, world::WorldHandler}, geometry::{rotation::Orientation, vec3d::Vec3Df}, rendering::{camera::Camera, framebuffer::HordeColorFormat}, scheduler::{EmptyBackgroundTask, HordeScheduler, HordeTask, HordeTaskData, HordeTaskHandler, HordeTaskQueue, HordeTaskSequence, IndividualTask, SequencedTask}, sound::{ARWWaves, SoundRequest, WaveIdentification, WavePosition, WaveRequest, WaveSink, Waves, WavesHandler}}};
 
 use super::{engine_derive_test::{TestEngineBase, TestWorld}, entity_derive_test::{CoolComponent, CoolEntityVec, NewCoolEntity}, single_player_engine_test::{SinglePEngine, SinglePEngineBase, SinglePWorld}};
 
@@ -34,7 +34,7 @@ pub fn lance_serveur() {
         SequencedTask::WaitFor(TestServerTask::MultiFourthPart),
         ]
     )], Vec::new());
-    let mut scheduler = HordeScheduler::new(queue.clone(), handler, 3);
+    let mut scheduler: HordeScheduler<TestServerTask, EmptyBackgroundTask> = HordeScheduler::new(queue.clone(), handler, 3, 2);
     println!("SERVER LOOP STARTING");
     loop {
         let start = Instant::now();
@@ -215,7 +215,7 @@ pub fn singleplayer_test() {
         }
         *writer.camera = Camera::new(Vec3Df::new(0.0, 0.0, 20.0), Orientation::new(0.0, PI, 0.0));
     }
-    let mut scheduler = HordeScheduler::new(queue.clone(), handler, 16);
+    let mut scheduler: HordeScheduler<TestSinglePlayerTask, EmptyBackgroundTask> = HordeScheduler::new(queue.clone(), handler, 16, 4);
     let mut clicked = false;
     for i in 0..255 {
         //println!("{i}");
@@ -346,7 +346,7 @@ pub fn client_test(name:String) {
         }
         *writer.camera = Camera::new(Vec3Df::new(0.0, 0.0, 20.0), Orientation::new(0.0, PI, 0.0));
     }
-    let mut scheduler = HordeScheduler::new(queue.clone(), handler, 16);
+    let mut scheduler: HordeScheduler<TestTask, EmptyBackgroundTask> = HordeScheduler::new(queue.clone(), handler, 16, 4);
     for i in 0..2550 {
         if i == 25 {
             cs.send(format!("{} is sending you this message", name.clone()));
@@ -390,12 +390,12 @@ pub enum TestTask {
 
     #[uses_type = "TestEngineBase"]
     #[max_threads = 3]
-    #[type_task_id = 1]
+    #[type_task_id = 100]
     Main,
 
     #[uses_type = "TestEngineBase"]
     #[max_threads = 3]
-    #[type_task_id = 2]
+    #[type_task_id = 101]
     AfterMain,
 
     #[uses_type = "TestEngineBase"]
@@ -463,12 +463,12 @@ pub enum TestServerTask {
 
     #[uses_type = "TestEngineBase"]
     #[max_threads = 3]
-    #[type_task_id = 1]
+    #[type_task_id = 100]
     Main,
 
     #[uses_type = "TestEngineBase"]
     #[max_threads = 3]
-    #[type_task_id = 2]
+    #[type_task_id = 101]
     AfterMain,
 
     #[uses_type = "TestEngineBase"]
@@ -507,12 +507,12 @@ pub enum TestSinglePlayerTask {
 
     #[uses_type = "SinglePEngineBase"]
     #[max_threads = 3]
-    #[type_task_id = 1]
+    #[type_task_id = 100]
     Main,
 
     #[uses_type = "SinglePEngineBase"]
     #[max_threads = 3]
-    #[type_task_id = 2]
+    #[type_task_id = 101]
     AfterMain,
 
     #[uses_type = "SinglePEngineBase"]

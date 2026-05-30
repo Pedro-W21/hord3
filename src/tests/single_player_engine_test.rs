@@ -53,7 +53,7 @@ impl RenderingBackend for TestRB {
     type RenderingStatusUpdate = usize;
 }
 
-pub fn after_main_tick<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, SinglePEngineTID>, world_read: &WorldComputeHandler<'a, SinglePWorld, SinglePEngineTID>, waves:&SingleExtraData) {
+pub fn stage_1<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, SinglePEngineTID>, world_read: &WorldComputeHandler<'a, SinglePWorld, SinglePEngineTID>, waves:&SingleExtraData) {
     println!("TEST AFTER MAIN");
     match turn {
         EntityTurn::ent1 => {
@@ -63,7 +63,17 @@ pub fn after_main_tick<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecR
     
 }
 
-pub fn compute_tick<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, SinglePEngineTID>, world_read: &WorldComputeHandler<'a, SinglePWorld, SinglePEngineTID>, waves:&SingleExtraData) {
+pub fn stage_2<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, SinglePEngineTID>, world_read: &WorldComputeHandler<'a, SinglePWorld, SinglePEngineTID>, waves:&SingleExtraData) {
+    println!("TEST AFTER MAIN");
+    match turn {
+        EntityTurn::ent1 => {
+            
+        },
+    }
+    
+}
+
+pub fn stage_0<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, SinglePEngineTID>, world_read: &WorldComputeHandler<'a, SinglePWorld, SinglePEngineTID>, waves:&SingleExtraData) {
     if id == 0 {
         let tick = waves.tick.fetch_add(1, Ordering::Relaxed);
         println!("{}", tick);
@@ -79,6 +89,7 @@ pub fn compute_tick<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead
 
 #[derive(GameEngine, Clone)]
 #[rendering_engine = "Vectorinator"]
+#[tick_stages = 3]
 pub struct SinglePEngine {
     ent1:CoolEntity,
     world:SinglePWorld,
