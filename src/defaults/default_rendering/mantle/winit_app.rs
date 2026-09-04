@@ -35,7 +35,7 @@ fn main() -> Result<(), impl Error> {
     event_loop.run_app(&mut app)
 }
 
-struct App {
+pub struct App {
     instance: Arc<Instance>,
     device: Arc<Device>,
     queue: Arc<Queue>,
@@ -45,7 +45,7 @@ struct App {
     events:Receiver<MantleEvent>
 }
 
-struct RenderContext {
+pub struct RenderContext {
     window: Arc<Window>,
     swapchain: Arc<Swapchain>,
     render_pass: Arc<RenderPass>,
@@ -57,7 +57,7 @@ struct RenderContext {
 }
 
 impl App {
-    fn new(event_loop: &EventLoop<()>) -> (Self, MantleHandler) {
+    pub fn new(event_loop: &EventLoop<()>) -> (Self, MantleHandler) {
         let library = unsafe { VulkanLibrary::new() }.unwrap();
         let required_extensions = Surface::required_extensions(event_loop).unwrap();
         let instance = Instance::new(
