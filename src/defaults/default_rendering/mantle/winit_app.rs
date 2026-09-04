@@ -332,7 +332,7 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 {
                     let mut meshes = self.meshes.write().unwrap();
-                    while let Ok(event) = self.events.recv() {
+                    while let Ok(event) = self.events.try_recv() {
                         meshes.apply_event(event);
                     }    
                 }
