@@ -214,12 +214,12 @@ impl ApplicationHandler for App {
                     layout(location = 0) in vec3 position;
 
                     // The per-instance data.
-                    layout(location = 1) in vec3 position_offset;
+                    layout(location = 1) in vec3 world_position;
                     layout(location = 2) in float scale;
 
                     void main() {
                         // Apply the scale and offset for the instance.
-                        vec3 worldspace = position * scale + position_offset;
+                        vec3 worldspace = position * scale + world_position;
 
                         vec3 cameraspace = worldspace;
 
@@ -229,7 +229,7 @@ impl ApplicationHandler for App {
 
                         vec3 screenspace = (vec3(1.0, 1.0, 1.0) + vec3(near_clipping_plane, near_clipping_plane, 0.0) * cameraspace) * z;
 
-                        gl_Position = vec4(position * scale + position_offset, 1.0);
+                        gl_Position = vec4(screenspace, 1.0);
                     }
                 ",
             }
