@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-mod meshes;
-mod api;
-mod winit_app;
+pub mod meshes;
+pub mod api;
+pub mod winit_app;
 
 mod cs {
     vulkano_shaders::shader!{
