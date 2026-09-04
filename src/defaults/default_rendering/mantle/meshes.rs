@@ -223,9 +223,9 @@ pub struct MeshLOD {
 #[repr(C)]
 pub struct IndexData {
     #[format(R32_UINT)]
-    vertex:u32,
+    pub vertex:u32,
     #[format(R32G32_SFLOAT)]
-    u:[f32 ; 2],
+    pub u:[f32 ; 2],
 }
 
 pub enum MeshID {
