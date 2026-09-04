@@ -227,9 +227,9 @@ impl ApplicationHandler for App {
 
                         float near_clipping_plane = 1.0;
 
-                        vec3 screenspace = (vec3(1.0, 1.0, 1.0) + vec3(near_clipping_plane, near_clipping_plane, 0.0) * cameraspace) * z;
+                        vec3 screenspace = (vec3(1.0, 1.0, z) + vec3(near_clipping_plane, -near_clipping_plane, 0.0) * cameraspace * z);
 
-                        gl_Position = vec4(worldspace, 1.0);
+                        gl_Position = vec4(screenspace, 1.0);
                     }
                 ",
             }
