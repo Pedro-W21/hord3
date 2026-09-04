@@ -92,7 +92,7 @@ impl Meshes {
                     let index_buffer = Buffer::from_iter(
                         self.allocator.clone(),
                         BufferCreateInfo {
-                            usage: BufferUsage::VERTEX_BUFFER,
+                            usage: BufferUsage::INDEX_BUFFER,
                             ..Default::default()
                         },
                         AllocationCreateInfo {
