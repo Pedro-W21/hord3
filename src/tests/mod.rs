@@ -6,3 +6,5 @@ pub mod task_derive_test;
 pub mod simd_tests;
 pub mod crazy_test;
 pub mod single_player_engine_test;
+#[cfg(test)]
+pub mod mantle_test;

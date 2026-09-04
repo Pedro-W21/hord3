@@ -3,12 +3,12 @@
 // This is a simple, modified version of the `triangle.rs` example that demonstrates how we can use
 // the "instancing" technique with vulkano to draw many instances of the triangle.
 
-use std::{error::Error, sync::Arc};
+use std::{error::Error, sync::{Arc, RwLock, atomic::AtomicUsize, mpmc::{Receiver, Sender, channel}}};
 use foldhash::HashSet;
 use smallvec::smallvec;
 use vulkano::{
     Validated, VulkanError, VulkanLibrary, buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, command_buffer::{
-        AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, allocator::StandardCommandBufferAllocator,
+        AutoCommandBufferBuilder, CommandBufferUsage, DrawIndexedIndirectCommand, RenderPassBeginInfo, allocator::StandardCommandBufferAllocator,
     }, device::{
         Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags, physical::PhysicalDeviceType,
     }, image::{Image, ImageUsage, view::ImageView}, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator}, pipeline::{
@@ -26,9 +26,11 @@ use winit::{
     window::{Window, WindowId},
 };
 
+use crate::defaults::default_rendering::mantle::{api::{MantleEvent, MantleHandler, MantleResponse}, meshes::{InstanceData, Meshes, TriangleVertex}};
+
 fn main() -> Result<(), impl Error> {
     let event_loop = EventLoop::new().unwrap();
-    let mut app = App::new(&event_loop);
+    let (mut app,handler) = App::new(&event_loop);
 
     event_loop.run_app(&mut app)
 }
@@ -38,9 +40,9 @@ struct App {
     device: Arc<Device>,
     queue: Arc<Queue>,
     command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
-    vertex_buffer: Subbuffer<[TriangleVertex]>,
-    instance_buffer: Subbuffer<[InstanceData]>,
     rcx: Option<RenderContext>,
+    meshes:Arc<RwLock<Meshes>>,
+    events:Receiver<MantleEvent>
 }
 
 struct RenderContext {
@@ -55,7 +57,7 @@ struct RenderContext {
 }
 
 impl App {
-    fn new(event_loop: &EventLoop<()>) -> Self {
+    fn new(event_loop: &EventLoop<()>) -> (Self, MantleHandler) {
         let library = unsafe { VulkanLibrary::new() }.unwrap();
         let required_extensions = Surface::required_extensions(event_loop).unwrap();
         let instance = Instance::new(
@@ -117,7 +119,7 @@ impl App {
 
         let queue = queues.next().unwrap();
 
-        let memory_allocator = Arc::new(StandardMemoryAllocator::new(device.clone(), Default::default()));
+        let memory_allocator: Arc<vulkano::memory::allocator::GenericMemoryAllocator<vulkano::memory::allocator::FreeListAllocator>> = Arc::new(StandardMemoryAllocator::new(device.clone(), Default::default()));
         let command_buffer_allocator = Arc::new(StandardCommandBufferAllocator::new(
             device.clone(),
             Default::default(),
@@ -127,13 +129,13 @@ impl App {
         // identical to the one in the `triangle.rs` example.
         let vertices = [
             TriangleVertex {
-                position: [-0.5, -0.25],
+                position: [-0.5, -0.25, 0.10],
             },
             TriangleVertex {
-                position: [0.0, 0.5],
+                position: [0.0, 0.5, 0.10],
             },
             TriangleVertex {
-                position: [0.25, -0.1],
+                position: [0.25, -0.1, 0.10],
             },
         ];
         let vertex_buffer = Buffer::from_iter(
@@ -164,10 +166,11 @@ impl App {
                     let half_cell_h = 0.5 / rows as f32;
                     let x = half_cell_w + (c as f32 / cols as f32) * 2.0 - 1.0;
                     let y = half_cell_h + (r as f32 / rows as f32) * 2.0 - 1.0;
-                    let position_offset = [x, y];
+                    let z = 0.0;
+                    let world_position = [x, y, z];
                     let scale = (2.0 / rows as f32) * (c * rows + r) as f32 / n_instances as f32;
                     data.push(InstanceData {
-                        position_offset,
+                        world_position,
                         scale,
                     });
                 }
@@ -175,7 +178,7 @@ impl App {
             data
         };
         let instance_buffer = Buffer::from_iter(
-            memory_allocator,
+            memory_allocator.clone(),
             BufferCreateInfo {
                 usage: BufferUsage::VERTEX_BUFFER,
                 ..Default::default()
@@ -189,15 +192,22 @@ impl App {
         )
         .unwrap();
 
-        App {
-            instance,
-            device,
-            queue,
-            command_buffer_allocator,
-            vertex_buffer,
-            instance_buffer,
-            rcx: None,
-        }
+        let (sender, receiver) = channel();
+        let (sender2, receiver2) = channel();
+
+        let handler = MantleHandler::new(sender, receiver2);
+        (
+            App {
+                instance,
+                device,
+                queue,
+                command_buffer_allocator,
+                meshes:Arc::new(RwLock::new(Meshes { meshes: vec![], allocator:memory_allocator, mesh_creation_sender:sender2 })),
+                rcx: None,
+                events:receiver
+            },
+            handler
+        )
     }
 }
 
@@ -268,15 +278,25 @@ impl ApplicationHandler for App {
                     #version 450
 
                     // The triangle vertex positions.
-                    layout(location = 0) in vec2 position;
+                    layout(location = 0) in vec3 position;
 
                     // The per-instance data.
-                    layout(location = 1) in vec2 position_offset;
+                    layout(location = 1) in vec3 position_offset;
                     layout(location = 2) in float scale;
 
                     void main() {
                         // Apply the scale and offset for the instance.
-                        gl_Position = vec4(position * scale + position_offset, 0.0, 1.0);
+                        vec3 worldspace = position * scale + position_offset;
+
+                        vec3 cameraspace = worldspace;
+
+                        float z = 1.0/cameraspace.z;
+
+                        float near_clipping_plane = 1.0;
+
+                        vec3 screenspace = (vec3(1.0, 1.0, 1.0) + vec3(near_clipping_plane, near_clipping_plane, 0.0) * cameraspace) * z;
+
+                        gl_Position = vec4(position * scale + position_offset, 1.0);
                     }
                 ",
             }
@@ -377,6 +397,13 @@ impl ApplicationHandler for App {
                 rcx.recreate_swapchain = true;
             }
             WindowEvent::RedrawRequested => {
+                {
+                    let mut meshes = self.meshes.write().unwrap();
+                    while let Ok(event) = self.events.recv() {
+                        meshes.apply_event(event);
+                    }    
+                }
+                
                 let window_size = rcx.window.inner_size();
 
                 if window_size.width == 0 || window_size.height == 0 {
@@ -418,6 +445,8 @@ impl ApplicationHandler for App {
                     rcx.recreate_swapchain = true;
                 }
 
+
+
                 let mut builder = AutoCommandBufferBuilder::primary(
                     self.command_buffer_allocator.clone(),
                     self.queue.queue_family_index(),
@@ -439,22 +468,32 @@ impl ApplicationHandler for App {
                     .set_viewport(0, [rcx.viewport.clone()].into_iter().collect())
                     .unwrap()
                     .bind_pipeline_graphics(rcx.pipeline.clone())
-                    .unwrap()
+                    .unwrap();
+                
+                for mesh in &self.meshes.read().unwrap().meshes {
                     // We pass both our lists of vertices here.
-                    .bind_vertex_buffers(
+                    let lod = &mesh.lods[0];
+                    builder.bind_vertex_buffers(
                         0,
-                        (self.vertex_buffer.clone(), self.instance_buffer.clone()),
+                        (lod.vertex_buffer.clone(), mesh.instances.instance_buffer.clone()),
                     )
                     .unwrap();
-                unsafe {
-                    builder.draw(
-                        self.vertex_buffer.len() as u32,
-                        self.instance_buffer.len() as u32,
-                        0,
-                        0,
+                    builder.bind_index_buffer(
+                        lod.indices.clone()
                     )
+                    .unwrap();
+
+                    unsafe {
+                        builder.draw_indexed(
+                            lod.vertex_buffer.len() as u32,
+                            mesh.instances.instance_buffer.len() as u32,
+                            0,
+                            0,
+                            0
+                        )
+                    }
+                    .unwrap();
                 }
-                .unwrap();
 
                 builder.end_render_pass(Default::default()).unwrap();
 
@@ -494,24 +533,6 @@ impl ApplicationHandler for App {
         let rcx = self.rcx.as_mut().unwrap();
         rcx.window.request_redraw();
     }
-}
-
-/// The vertex type that we will be used to describe the triangle's geometry.
-#[derive(BufferContents, Vertex)]
-#[repr(C)]
-struct TriangleVertex {
-    #[format(R32G32_SFLOAT)]
-    position: [f32; 2],
-}
-
-/// The vertex type that describes the unique data per instance.
-#[derive(BufferContents, Vertex)]
-#[repr(C)]
-struct InstanceData {
-    #[format(R32G32_SFLOAT)]
-    position_offset: [f32; 2],
-    #[format(R32_SFLOAT)]
-    scale: f32,
 }
 
 /// This function is called once during initialization, then again whenever the window is resized.
