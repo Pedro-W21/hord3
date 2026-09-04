@@ -119,78 +119,11 @@ impl App {
 
         let queue = queues.next().unwrap();
 
-        let memory_allocator: Arc<vulkano::memory::allocator::GenericMemoryAllocator<vulkano::memory::allocator::FreeListAllocator>> = Arc::new(StandardMemoryAllocator::new(device.clone(), Default::default()));
+        let memory_allocator: Arc<vulkano::memory::allocator::GenericMemoryAllocator<vulkano::memory::allocator::FreeListAllocator>> = Arc::new(StandardMemoryAllocator::new_default(device.clone()));
         let command_buffer_allocator = Arc::new(StandardCommandBufferAllocator::new(
             device.clone(),
             Default::default(),
         ));
-
-        // We now create a buffer that will store the shape of our triangle. This triangle is
-        // identical to the one in the `triangle.rs` example.
-        let vertices = [
-            TriangleVertex {
-                position: [-0.5, -0.25, 0.10],
-            },
-            TriangleVertex {
-                position: [0.0, 0.5, 0.10],
-            },
-            TriangleVertex {
-                position: [0.25, -0.1, 0.10],
-            },
-        ];
-        let vertex_buffer = Buffer::from_iter(
-            memory_allocator.clone(),
-            BufferCreateInfo {
-                usage: BufferUsage::VERTEX_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                ..Default::default()
-            },
-            vertices,
-        )
-        .unwrap();
-
-        // Now we create another buffer that will store the unique data per instance. For this
-        // example, we'll have the instances form a 10x10 grid that slowly gets larger.
-        let instances = {
-            let rows = 10;
-            let cols = 10;
-            let n_instances = rows * cols;
-            let mut data = Vec::new();
-            for c in 0..cols {
-                for r in 0..rows {
-                    let half_cell_w = 0.5 / cols as f32;
-                    let half_cell_h = 0.5 / rows as f32;
-                    let x = half_cell_w + (c as f32 / cols as f32) * 2.0 - 1.0;
-                    let y = half_cell_h + (r as f32 / rows as f32) * 2.0 - 1.0;
-                    let z = 0.0;
-                    let world_position = [x, y, z];
-                    let scale = (2.0 / rows as f32) * (c * rows + r) as f32 / n_instances as f32;
-                    data.push(InstanceData {
-                        world_position,
-                        scale,
-                    });
-                }
-            }
-            data
-        };
-        let instance_buffer = Buffer::from_iter(
-            memory_allocator.clone(),
-            BufferCreateInfo {
-                usage: BufferUsage::VERTEX_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                ..Default::default()
-            },
-            instances,
-        )
-        .unwrap();
 
         let (sender, receiver) = channel();
         let (sender2, receiver2) = channel();
