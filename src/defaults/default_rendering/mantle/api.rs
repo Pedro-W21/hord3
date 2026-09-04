@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock, mpmc::{Receiver, Sender}};
+use std::sync::{Arc, RwLock, RwLockReadGuard, mpmc::{Receiver, Sender}};
 
 use crate::{defaults::default_rendering::mantle::meshes::{IndexData, InstanceIDGenerator, MeshID, TextureID}, horde::{geometry::{rotation::Rotation, vec3d::Vec3Df}, scheduler::IndividualTask}};
 
@@ -55,6 +55,7 @@ pub enum MantleResponse {
     MeshCreated {id_generator:InstanceIDGenerator, direct_id:usize, name:String}
 }
 
+#[derive(Clone)]
 pub struct MantleHandler {
     pub event_sender:Sender<MantleEvent>,
     mesh_creation_receiver:Receiver<MantleResponse>,
@@ -81,6 +82,9 @@ impl MantleHandler {
     }
     pub fn new(event_sender:Sender<MantleEvent>, mesh_creation_receiver:Receiver<MantleResponse>) -> Self {
         Self { event_sender, mesh_creation_receiver, mesh_datas: Arc::new(RwLock::new(Vec::with_capacity(128))) }
+    }
+    pub fn get_meshes<'a>(&'a self) -> RwLockReadGuard<'a, Vec<CPUMeshData>> {
+        self.mesh_datas.read().unwrap()
     }
 }
 
