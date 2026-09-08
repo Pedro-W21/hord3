@@ -14,7 +14,7 @@ use vulkano::{
     }, image::{Image, ImageUsage, view::ImageView}, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator}, pipeline::{
         DynamicState, GraphicsPipeline, Pipeline, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{
             GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState},
-        }, layout::PipelineLayoutCreateInfo,
+        }, layout::{PipelineDescriptorSetLayoutCreateInfo, PipelineLayoutCreateInfo},
     }, render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass}, single_pass_renderpass, swapchain::{
         Surface, Swapchain, SwapchainCreateInfo, SwapchainPresentInfo, acquire_next_image,
     }, sync::{self, GpuFuture},
@@ -268,8 +268,7 @@ impl ApplicationHandler for App {
                 PipelineShaderStageCreateInfo::new(vs),
                 PipelineShaderStageCreateInfo::new(fs),
             ];
-            let pipeline_create_info = PipelineLayoutCreateInfo::default();
-            let layout = PipelineLayout::new(self.device.clone(), pipeline_create_info).unwrap();
+            let layout = PipelineLayout::new(self.device.clone(), PipelineDescriptorSetLayoutCreateInfo::from_stages(&stages).into_pipeline_layout_create_info(self.device.clone()).unwrap()).unwrap();
             let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
 
             GraphicsPipeline::new(
