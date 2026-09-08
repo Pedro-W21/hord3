@@ -9,10 +9,10 @@ use smallvec::smallvec;
 use vulkano::{
     Validated, VulkanError, VulkanLibrary, buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, command_buffer::{
         AutoCommandBufferBuilder, CommandBufferUsage, DrawIndexedIndirectCommand, RenderPassBeginInfo, allocator::StandardCommandBufferAllocator,
-    }, device::{
+    }, descriptor_set::{CopyDescriptorSet, DescriptorSet, WriteDescriptorSet, allocator::StandardDescriptorSetAllocator}, device::{
         Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags, physical::PhysicalDeviceType,
     }, image::{Image, ImageUsage, view::ImageView}, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator}, pipeline::{
-        DynamicState, GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{
+        DynamicState, GraphicsPipeline, Pipeline, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{
             GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState},
         }, layout::PipelineLayoutCreateInfo,
     }, render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass}, single_pass_renderpass, swapchain::{
@@ -26,7 +26,7 @@ use winit::{
     window::{Window, WindowId},
 };
 
-use crate::defaults::default_rendering::mantle::{api::{MantleEvent, MantleHandler, MantleResponse}, meshes::{InstanceData, Meshes, TriangleVertex}};
+use crate::{defaults::default_rendering::mantle::{api::{MantleEvent, MantleHandler, MantleResponse}, meshes::{CameraData, InstanceData, MemoryAllocator, Meshes, TriangleVertex}}, horde::{geometry::{mat4::Mat4, vec3d::Vec3Df}, rendering::camera::Camera}};
 
 fn main() -> Result<(), impl Error> {
     let event_loop = EventLoop::new().unwrap();
@@ -41,6 +41,7 @@ pub struct App {
     queue: Arc<Queue>,
     command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
     rcx: Option<RenderContext>,
+    memory_allocator:MemoryAllocator,
     meshes:Arc<RwLock<Meshes>>,
     events:Receiver<MantleEvent>
 }
@@ -135,9 +136,10 @@ impl App {
                 device,
                 queue,
                 command_buffer_allocator,
-                meshes:Arc::new(RwLock::new(Meshes { meshes: vec![], allocator:memory_allocator, mesh_creation_sender:sender2 })),
+                meshes:Arc::new(RwLock::new(Meshes { meshes: vec![], allocator:memory_allocator.clone(), mesh_creation_sender:sender2, camera:Camera::empty() })),
                 rcx: None,
-                events:receiver
+                events:receiver,
+                memory_allocator
             },
             handler
         )
@@ -217,19 +219,19 @@ impl ApplicationHandler for App {
                     layout(location = 1) in vec3 world_position;
                     layout(location = 2) in float scale;
 
+                    // Camera Data (Uniform Buffer)
+                    layout(set = 0, binding = 0) uniform CameraBuffer {
+                        mat4 view;
+                        mat4 projection;
+                    } camera;
+
                     void main() {
                         // Apply the scale and offset for the instance.
                         vec3 worldspace = position * scale + world_position;
 
-                        vec3 cameraspace = worldspace;
+                        vec4 cameraspace = camera.view * vec4(worldspace, 1.0);
 
-                        float z = 1.0/cameraspace.z;
-
-                        float near_clipping_plane = 1.0;
-
-                        vec3 screenspace = (vec3(1.0, 1.0, z) + vec3(near_clipping_plane, -near_clipping_plane, 0.0) * cameraspace * z);
-
-                        gl_Position = vec4(screenspace, 1.0);
+                        gl_Position = camera.projection * cameraspace;
                     }
                 ",
             }
@@ -330,14 +332,18 @@ impl ApplicationHandler for App {
                 rcx.recreate_swapchain = true;
             }
             WindowEvent::RedrawRequested => {
-                {
+                
+                let window_size = rcx.window.inner_size();
+
+                let aspect_ratio = (window_size.width as f32)/(window_size.height as f32);
+                let camera = {
                     let mut meshes = self.meshes.write().unwrap();
                     while let Ok(event) = self.events.try_recv() {
                         meshes.apply_event(event);
-                    }    
-                }
-                
-                let window_size = rcx.window.inner_size();
+                    }
+                    meshes.get_new_camdata(aspect_ratio)
+                };
+
 
                 if window_size.width == 0 || window_size.height == 0 {
                     return;
@@ -387,6 +393,44 @@ impl ApplicationHandler for App {
                 )
                 .unwrap();
 
+
+
+                let descriptor_set_allocator =
+                    StandardDescriptorSetAllocator::new(self.device.clone(), Default::default());
+                let pipeline_layout = rcx.pipeline.layout();
+                let descriptor_set_layouts = pipeline_layout.set_layouts();
+
+                let descriptor_set_layout_index = 0;
+                let descriptor_set_layout = descriptor_set_layouts
+                    .get(descriptor_set_layout_index)
+                    .unwrap();
+                                
+                
+                let buffer = Buffer::from_data(
+                    self.memory_allocator.clone(),
+                    BufferCreateInfo {
+                        usage: BufferUsage::UNIFORM_BUFFER,
+                        ..Default::default()
+                    },
+                    AllocationCreateInfo {
+                        memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                            | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                        ..Default::default()
+                    },
+                    camera
+                ).unwrap();
+
+
+
+
+                let descriptor_set = DescriptorSet::new(
+                    Arc::new(descriptor_set_allocator),
+                    descriptor_set_layout.clone(),
+                    [WriteDescriptorSet::buffer(0, buffer)], // 0 is the binding
+                    [],
+                )
+                .unwrap();
+
                 builder
                     .begin_render_pass(
                         RenderPassBeginInfo {
@@ -401,8 +445,13 @@ impl ApplicationHandler for App {
                     .set_viewport(0, [rcx.viewport.clone()].into_iter().collect())
                     .unwrap()
                     .bind_pipeline_graphics(rcx.pipeline.clone())
-                    .unwrap();
-                
+                    .unwrap()
+                    .bind_descriptor_sets(vulkano::pipeline::PipelineBindPoint::Graphics,
+                        pipeline_layout.clone(),
+                        0,
+                        descriptor_set
+                    ).unwrap();
+            
                 for mesh in &self.meshes.read().unwrap().meshes {
                     // We pass both our lists of vertices here.
                     let lod = &mesh.lods[0];

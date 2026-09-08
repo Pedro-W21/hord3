@@ -3,6 +3,7 @@ pub mod rotation;
 pub mod plane;
 pub mod line;
 pub mod shapes_3d;
+pub mod mat4;
 
 pub type HordeFloat = f32;
 

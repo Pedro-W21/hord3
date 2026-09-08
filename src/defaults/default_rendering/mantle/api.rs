@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, mpmc::{Receiver, Sender}};
 
-use crate::{defaults::default_rendering::mantle::meshes::{IndexData, InstanceIDGenerator, MeshID, TextureID}, horde::{geometry::{rotation::Rotation, vec3d::Vec3Df}, scheduler::IndividualTask}};
+use crate::{defaults::default_rendering::mantle::meshes::{IndexData, InstanceIDGenerator, MeshID, TextureID}, horde::{geometry::{rotation::{Orientation, Rotation}, vec3d::Vec3Df}, rendering::camera::Camera, scheduler::IndividualTask}};
 
 
 pub struct CPUInstanceData {
@@ -42,6 +42,9 @@ pub enum MantleRequest {
         lods:Vec<ApiLod>,
         texture:TextureID,
         first_instances:Vec<CPUInstanceData>
+    },
+    UpdateCamera {
+        new_cam:Camera
     }
 }
 pub struct MantleEvent {

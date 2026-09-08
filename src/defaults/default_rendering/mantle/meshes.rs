@@ -1,8 +1,8 @@
-use std::sync::{Arc, atomic::{AtomicU64, AtomicUsize}, mpmc::{Receiver, Sender, channel}};
+use std::{f32::consts::PI, sync::{Arc, atomic::{AtomicU64, AtomicUsize}, mpmc::{Receiver, Sender, channel}}};
 
 use vulkano::{buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, format, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter}, pipeline::graphics::vertex_input::Vertex};
 
-use crate::{defaults::default_rendering::mantle::api::{CPUInstanceData, MantleEvent, MantleRequest, MantleResponse}, horde::geometry::{rotation::Rotation, vec3d::Vec3Df}};
+use crate::{defaults::default_rendering::mantle::api::{CPUInstanceData, MantleEvent, MantleRequest, MantleResponse}, horde::{geometry::{mat4::Mat4, rotation::Rotation, vec3d::Vec3Df}, rendering::camera::Camera}};
 
 
 pub type MemoryAllocator = Arc<vulkano::memory::allocator::GenericMemoryAllocator<vulkano::memory::allocator::FreeListAllocator>>;
@@ -10,6 +10,7 @@ pub struct Meshes {
     pub meshes:Vec<Mesh>,
     pub mesh_creation_sender:Sender<MantleResponse>,
     pub allocator:MemoryAllocator,
+    pub camera:Camera,
 }
 
 impl Meshes {
@@ -117,7 +118,13 @@ impl Meshes {
                     self.mesh_creation_sender.send(MantleResponse::MeshCreated { id_generator:id_generator.clone(), direct_id:id, name:name.clone() }).unwrap();
                     event.response.send(MantleResponse::MeshCreated { id_generator, direct_id:id, name }).unwrap();
                 }
-            }
+            },
+            MantleRequest::UpdateCamera {
+                new_cam
+            } => {
+                self.camera = new_cam;
+                event.response.send(MantleResponse::Success).unwrap();
+            },
         }
     }
     pub fn get_mesh_mut(&mut self, id:MeshID) -> Option<&mut Mesh> {
@@ -125,6 +132,11 @@ impl Meshes {
             MeshID::DirectID(index) => self.meshes.get_mut(index),
             MeshID::Name(name) => self.meshes.iter_mut().find(|mesh| {mesh.name == name})
         }
+    }
+    pub fn get_new_camdata(&self, aspect_ratio:f32) -> CameraData {
+        let view = Mat4::look_to(self.camera.pos, self.camera.orient.into_vec(), Vec3Df::new(0.0, 0.0, 1.0));
+        let projection = Mat4::perspective(PI/3.0, aspect_ratio, 1.0, 1000.0);
+        CameraData::from_view_projection(view, projection)
     }
 }
 
@@ -231,4 +243,42 @@ pub struct IndexData {
 pub enum MeshID {
     Name(String),
     DirectID(usize)
+}
+
+/// The vertex type that describes the unique data per instance.
+#[derive(BufferContents, Vertex)]
+#[repr(C)]
+pub struct CameraData {
+    #[format(R32G32B32A32_SFLOAT)]
+    view_0: [f32 ; 4],
+    #[format(R32G32B32A32_SFLOAT)]
+    view_1: [f32 ; 4],
+    #[format(R32G32B32A32_SFLOAT)]
+    view_2: [f32 ; 4],
+    #[format(R32G32B32A32_SFLOAT)]
+    view_3: [f32 ; 4],
+    #[format(R32G32B32A32_SFLOAT)]
+    projection_0: [f32 ; 4],
+    #[format(R32G32B32A32_SFLOAT)]
+    projection_1: [f32 ; 4],
+    #[format(R32G32B32A32_SFLOAT)]
+    projection_2: [f32 ; 4],
+    #[format(R32G32B32A32_SFLOAT)]
+    projection_3: [f32 ; 4],
+}
+
+impl CameraData {
+    pub fn from_view_projection(view:Mat4, projection:Mat4) -> Self {
+        Self {
+            view_0:view.to_cols_array_2d()[0],
+            view_1:view.to_cols_array_2d()[1],
+            view_2:view.to_cols_array_2d()[2],
+            view_3:view.to_cols_array_2d()[3],
+
+            projection_0:projection.to_cols_array_2d()[0],
+            projection_1:projection.to_cols_array_2d()[1],
+            projection_2:projection.to_cols_array_2d()[2],
+            projection_3:projection.to_cols_array_2d()[3],
+        }
+    }
 }
