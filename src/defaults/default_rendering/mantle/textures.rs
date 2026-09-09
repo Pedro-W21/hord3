@@ -43,7 +43,7 @@ impl TextureAtlas {
                 image_type: ImageType::Dim2d,
                 format: Format::R8G8B8A8_UNORM,
                 extent: [width as u32, height as u32, 1],
-                usage: ImageUsage::TRANSFER_DST | ImageUsage::TRANSFER_SRC,
+                usage: ImageUsage::TRANSFER_DST | ImageUsage::TRANSFER_SRC | ImageUsage::SAMPLED,
                 ..Default::default()
             },
             AllocationCreateInfo {
