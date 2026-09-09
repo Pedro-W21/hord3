@@ -256,7 +256,7 @@ impl ApplicationHandler for App {
                     layout(set = 1, binding = 0) uniform sampler2D u_texture_atlas;
 
                     void main() {
-                        f_color = vec4(1.0, 0.0, 0.0, 1.0);
+                        f_color = texture(u_texture_atlas, v_uv);
                     }
                 ",
             }
