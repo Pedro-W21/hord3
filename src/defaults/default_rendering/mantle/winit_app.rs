@@ -11,7 +11,7 @@ use vulkano::{
         AutoCommandBufferBuilder, CommandBufferUsage, DrawIndexedIndirectCommand, RenderPassBeginInfo, allocator::StandardCommandBufferAllocator,
     }, descriptor_set::{CopyDescriptorSet, DescriptorSet, WriteDescriptorSet, allocator::StandardDescriptorSetAllocator}, device::{
         Device, DeviceCreateInfo, DeviceExtensions, DeviceOwned, Queue, QueueCreateInfo, QueueFlags, physical::PhysicalDeviceType,
-    }, image::{Image, ImageUsage, sampler::{Filter, Sampler, SamplerAddressMode, SamplerCreateInfo}, view::ImageView}, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator}, pipeline::{
+    }, format::Format, image::{Image, ImageCreateInfo, ImageType, ImageUsage, sampler::{Filter, Sampler, SamplerAddressMode, SamplerCreateInfo}, view::ImageView}, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator}, pipeline::{
         DynamicState, GraphicsPipeline, Pipeline, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{
             GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, depth_stencil::{DepthState, DepthStencilState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState},
         }, layout::{PipelineDescriptorSetLayoutCreateInfo, PipelineLayoutCreateInfo},
@@ -198,15 +198,21 @@ impl ApplicationHandler for App {
                     load_op: Clear,
                     store_op: Store,
                 },
+                depth: {
+                    format: vulkano::format::Format::D32_SFLOAT,
+                    samples: 1,
+                    load_op: Clear,
+                    store_op: DontCare,
+                }
             },
             pass: {
                 color: [color],
-                depth_stencil: {},
+                depth_stencil: {depth},
             },
         )
         .unwrap();
 
-        let framebuffers = window_size_dependent_setup(&images, &render_pass);
+        let framebuffers = window_size_dependent_setup(self.memory_allocator.clone(), &images, &render_pass);
 
         mod vs {
             vulkano_shaders::shader! {
@@ -366,7 +372,7 @@ impl ApplicationHandler for App {
                         .expect("failed to recreate swapchain");
 
                     rcx.swapchain = new_swapchain;
-                    rcx.framebuffers = window_size_dependent_setup(&new_images, &rcx.render_pass);
+                    rcx.framebuffers = window_size_dependent_setup(self.memory_allocator.clone(), &new_images, &rcx.render_pass);
                     rcx.viewport.extent = window_size.into();
                     rcx.recreate_swapchain = false;
                 }
@@ -477,7 +483,10 @@ impl ApplicationHandler for App {
                 builder
                     .begin_render_pass(
                         RenderPassBeginInfo {
-                            clear_values: vec![Some([0.0, 0.0, 1.0, 1.0].into())],
+                            clear_values: vec![
+                                Some([0.0, 0.0, 1.0, 1.0].into()),
+                                Some(1.0f32.into())
+                                ],
                             ..RenderPassBeginInfo::framebuffer(
                                 rcx.framebuffers[image_index as usize].clone(),
                             )
@@ -562,18 +571,36 @@ impl ApplicationHandler for App {
 
 /// This function is called once during initialization, then again whenever the window is resized.
 fn window_size_dependent_setup(
+    allocator:MemoryAllocator,
     images: &[Arc<Image>],
     render_pass: &Arc<RenderPass>,
 ) -> Vec<Arc<Framebuffer>> {
+    let extent = images[0].extent();
+
+    let depth_image = Image::new(
+        allocator,
+        ImageCreateInfo {
+            image_type: ImageType::Dim2d,
+            format: Format::D32_SFLOAT, 
+            extent,
+            usage: ImageUsage::DEPTH_STENCIL_ATTACHMENT,
+            ..Default::default()
+        },
+        AllocationCreateInfo::default(),
+    )
+    .unwrap();
+
+    let depth_view = ImageView::new_default(depth_image).unwrap();
     images
         .iter()
         .map(|image| {
+            
             let view = ImageView::new_default(image.clone()).unwrap();
 
             Framebuffer::new(
                 render_pass.clone(),
                 FramebufferCreateInfo {
-                    attachments: vec![view],
+                    attachments: vec![view, depth_view.clone()],
                     ..Default::default()
                 },
             )
