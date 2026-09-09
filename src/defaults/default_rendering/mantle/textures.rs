@@ -18,9 +18,10 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use image::{ImageBuffer, Rgba};
 use vulkano::{buffer::{Buffer, BufferCreateInfo, BufferUsage}, command_buffer::{AutoCommandBufferBuilder, BufferImageCopy, CopyBufferToImageInfo}, device::Device, format::Format, image::{Image, ImageCreateInfo, ImageType, ImageUsage}, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter}};
 
-use crate::defaults::default_rendering::mantle::meshes::MemoryAllocator;
+use crate::defaults::default_rendering::mantle::{api::MantleRequest, meshes::MemoryAllocator};
 
 pub struct TextureAtlas {
     width:usize,
@@ -124,6 +125,9 @@ impl TextureAtlas {
             v * pos.get_v_factor(self.height) + pos.v_origin
         ]
     }
+    pub fn get_image(&self) -> Arc<Image> {
+        self.image.clone()
+    }
     fn get_next_texture_position(&self, width:usize, height:usize) -> (usize, usize) {
         match &self.latest_texture {
             Some(text) => {
@@ -207,4 +211,28 @@ impl AtlasPosition {
             (x2, y2)
         )
     }
+}
+
+pub fn load_single_texture(path: &str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, ()> {
+    // tries to load an image in the "textures" folder
+    match image::io::Reader::open(path) {
+        Ok(texture) => {
+            //dbg!(nom);
+            let image_buffer = texture.decode().unwrap().to_rgba8();
+            return Ok(image_buffer);
+        }
+        Err(err) => {
+            println!(
+                "texture : {} couldn't be loaded, error {}",
+                path, err
+            );
+            return Err(());
+        }
+    }
+}
+
+pub fn buffer_to_request(name:String, buffer:ImageBuffer<Rgba<u8>, Vec<u8>>) -> MantleRequest {
+
+    let out = buffer.clone().into_raw();
+    MantleRequest::CreateOrUpdateTexture { name, texture_data: out, width: buffer.width() as usize, height:  buffer.height() as usize }
 }

@@ -10,8 +10,8 @@ use vulkano::{
     Validated, VulkanError, VulkanLibrary, buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, command_buffer::{
         AutoCommandBufferBuilder, CommandBufferUsage, DrawIndexedIndirectCommand, RenderPassBeginInfo, allocator::StandardCommandBufferAllocator,
     }, descriptor_set::{CopyDescriptorSet, DescriptorSet, WriteDescriptorSet, allocator::StandardDescriptorSetAllocator}, device::{
-        Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags, physical::PhysicalDeviceType,
-    }, image::{Image, ImageUsage, view::ImageView}, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator}, pipeline::{
+        Device, DeviceCreateInfo, DeviceExtensions, DeviceOwned, Queue, QueueCreateInfo, QueueFlags, physical::PhysicalDeviceType,
+    }, image::{Image, ImageUsage, sampler::{Filter, Sampler, SamplerAddressMode, SamplerCreateInfo}, view::ImageView}, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator}, pipeline::{
         DynamicState, GraphicsPipeline, Pipeline, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{
             GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState},
         }, layout::{PipelineDescriptorSetLayoutCreateInfo, PipelineLayoutCreateInfo},
@@ -228,6 +228,8 @@ impl ApplicationHandler for App {
                         mat4 projection;
                     } camera;
 
+                    layout(location = 0) out vec2 v_uv;
+
                     void main() {
                         // Apply the scale and offset for the instance.
                         vec3 worldspace = position * scale + world_position;
@@ -235,6 +237,7 @@ impl ApplicationHandler for App {
                         vec4 cameraspace = camera.view * vec4(worldspace, 1.0);
 
                         gl_Position = camera.projection * cameraspace;
+                        v_uv = uv;
                     }
                 ",
             }
@@ -246,7 +249,11 @@ impl ApplicationHandler for App {
                 src: r"
                     #version 450
 
+                    layout(location = 0) in vec2 v_uv;
+
                     layout(location = 0) out vec4 f_color;
+
+                    layout(set = 1, binding = 0) uniform sampler2D u_texture_atlas;
 
                     void main() {
                         f_color = vec4(1.0, 0.0, 0.0, 1.0);
@@ -388,13 +395,13 @@ impl ApplicationHandler for App {
                 .unwrap();
 
                 let aspect_ratio = (window_size.width as f32)/(window_size.height as f32);
-                let camera = {
+                let (camera, atlas) = {
                     let mut meshes = self.meshes.write().unwrap();
                     let mut textures = self.textures.write().unwrap();
                     while let Ok(event) = self.events.try_recv() {
                         meshes.apply_event(event,&mut textures, &mut builder);
                     }
-                    meshes.get_new_camdata(aspect_ratio)
+                    (meshes.get_new_camdata(aspect_ratio), textures.get_image())
                 };
 
 
@@ -426,11 +433,39 @@ impl ApplicationHandler for App {
 
 
 
-
-                let descriptor_set = DescriptorSet::new(
-                    Arc::new(descriptor_set_allocator),
+                let descriptor_set_allocator = Arc::new(descriptor_set_allocator);
+                let camera_descriptor_set = DescriptorSet::new(
+                    descriptor_set_allocator.clone(),
                     descriptor_set_layout.clone(),
                     [WriteDescriptorSet::buffer(0, buffer)], // 0 is the binding
+                    [],
+                )
+                .unwrap();
+
+                let image_view = ImageView::new_default(atlas).unwrap();
+
+                let sampler = Sampler::new(
+                    image_view.device().clone(),
+                    SamplerCreateInfo {
+                        mag_filter: Filter::Nearest, // Pratique pour du pixel art / atlases
+                        min_filter: Filter::Nearest,
+                        address_mode: [SamplerAddressMode::ClampToEdge; 3],
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+
+
+                let descriptor_set_layout_index = 1;
+                let descriptor_set_layout = descriptor_set_layouts
+                    .get(descriptor_set_layout_index)
+                    .unwrap();
+
+
+                let atlas_descriptor_set = DescriptorSet::new(
+                    descriptor_set_allocator.clone(),
+                    descriptor_set_layout.clone(),
+                    [WriteDescriptorSet::image_view_sampler(0, image_view, sampler)], // 0 is the binding
                     [],
                 )
                 .unwrap();
@@ -453,7 +488,7 @@ impl ApplicationHandler for App {
                     .bind_descriptor_sets(vulkano::pipeline::PipelineBindPoint::Graphics,
                         pipeline_layout.clone(),
                         0,
-                        descriptor_set
+                        (camera_descriptor_set, atlas_descriptor_set)
                     ).unwrap();
             
                 for mesh in &self.meshes.read().unwrap().meshes {
