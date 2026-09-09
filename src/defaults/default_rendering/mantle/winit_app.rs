@@ -13,7 +13,7 @@ use vulkano::{
         Device, DeviceCreateInfo, DeviceExtensions, DeviceOwned, Queue, QueueCreateInfo, QueueFlags, physical::PhysicalDeviceType,
     }, image::{Image, ImageUsage, sampler::{Filter, Sampler, SamplerAddressMode, SamplerCreateInfo}, view::ImageView}, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator}, pipeline::{
         DynamicState, GraphicsPipeline, Pipeline, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{
-            GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState},
+            GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, depth_stencil::{DepthState, DepthStencilState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState},
         }, layout::{PipelineDescriptorSetLayoutCreateInfo, PipelineLayoutCreateInfo},
     }, render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass}, single_pass_renderpass, swapchain::{
         Surface, Swapchain, SwapchainCreateInfo, SwapchainPresentInfo, acquire_next_image,
@@ -295,6 +295,10 @@ impl ApplicationHandler for App {
                     multisample_state: Some(MultisampleState::default()),
                     color_blend_state: Some(ColorBlendState {
                         attachments: vec![ColorBlendAttachmentState::default()],
+                        ..Default::default()
+                    }),
+                    depth_stencil_state: Some(DepthStencilState {
+                        depth: Some(DepthState::simple()),
                         ..Default::default()
                     }),
                     dynamic_state: HashSet::from_iter([DynamicState::Viewport]),
