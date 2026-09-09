@@ -3,6 +3,7 @@ use std::sync::Arc;
 pub mod meshes;
 pub mod api;
 pub mod winit_app;
+pub mod textures;
 
 mod cs {
     vulkano_shaders::shader!{

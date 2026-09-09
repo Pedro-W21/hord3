@@ -26,7 +26,7 @@ use winit::{
     window::{Window, WindowId},
 };
 
-use crate::{defaults::default_rendering::mantle::{api::{MantleEvent, MantleHandler, MantleResponse}, meshes::{CameraData, InstanceData, MemoryAllocator, Meshes, TriangleVertex}}, horde::{geometry::{mat4::Mat4, vec3d::Vec3Df}, rendering::camera::Camera}};
+use crate::{defaults::default_rendering::mantle::{api::{MantleEvent, MantleHandler, MantleResponse}, meshes::{CameraData, InstanceData, MemoryAllocator, Meshes, TriangleVertex}, textures::TextureAtlas}, horde::{geometry::{mat4::Mat4, vec3d::Vec3Df}, rendering::camera::Camera}};
 
 fn main() -> Result<(), impl Error> {
     let event_loop = EventLoop::new().unwrap();
@@ -43,6 +43,7 @@ pub struct App {
     rcx: Option<RenderContext>,
     memory_allocator:MemoryAllocator,
     meshes:Arc<RwLock<Meshes>>,
+    textures:Arc<RwLock<TextureAtlas>>,
     events:Receiver<MantleEvent>
 }
 
@@ -137,9 +138,10 @@ impl App {
                 queue,
                 command_buffer_allocator,
                 meshes:Arc::new(RwLock::new(Meshes { meshes: vec![], allocator:memory_allocator.clone(), mesh_creation_sender:sender2, camera:Camera::empty() })),
+                textures:Arc::new(RwLock::new(TextureAtlas::new(4096, 4096, 1, memory_allocator.clone()))),
                 rcx: None,
                 events:receiver,
-                memory_allocator
+                memory_allocator,
             },
             handler
         )
@@ -214,10 +216,11 @@ impl ApplicationHandler for App {
 
                     // The triangle vertex positions.
                     layout(location = 0) in vec3 position;
+                    layout(location = 1) in vec2 uv;
 
                     // The per-instance data.
-                    layout(location = 1) in vec3 world_position;
-                    layout(location = 2) in float scale;
+                    layout(location = 2) in vec3 world_position;
+                    layout(location = 3) in float scale;
 
                     // Camera Data (Uniform Buffer)
                     layout(set = 0, binding = 0) uniform CameraBuffer {
@@ -334,14 +337,6 @@ impl ApplicationHandler for App {
                 
                 let window_size = rcx.window.inner_size();
 
-                let aspect_ratio = (window_size.width as f32)/(window_size.height as f32);
-                let camera = {
-                    let mut meshes = self.meshes.write().unwrap();
-                    while let Ok(event) = self.events.try_recv() {
-                        meshes.apply_event(event);
-                    }
-                    meshes.get_new_camdata(aspect_ratio)
-                };
 
 
                 if window_size.width == 0 || window_size.height == 0 {
@@ -385,12 +380,22 @@ impl ApplicationHandler for App {
 
 
 
-                let mut builder = AutoCommandBufferBuilder::primary(
+                let mut builder  = AutoCommandBufferBuilder::primary(
                     self.command_buffer_allocator.clone(),
                     self.queue.queue_family_index(),
                     CommandBufferUsage::OneTimeSubmit,
                 )
                 .unwrap();
+
+                let aspect_ratio = (window_size.width as f32)/(window_size.height as f32);
+                let camera = {
+                    let mut meshes = self.meshes.write().unwrap();
+                    let mut textures = self.textures.write().unwrap();
+                    while let Ok(event) = self.events.try_recv() {
+                        meshes.apply_event(event,&mut textures, &mut builder);
+                    }
+                    meshes.get_new_camdata(aspect_ratio)
+                };
 
 
 

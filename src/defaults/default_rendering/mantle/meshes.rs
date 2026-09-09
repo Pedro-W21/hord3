@@ -2,7 +2,7 @@ use std::{f32::consts::PI, sync::{Arc, atomic::{AtomicU64, AtomicUsize}, mpmc::{
 
 use vulkano::{buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, format, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter}, pipeline::graphics::vertex_input::Vertex};
 
-use crate::{defaults::default_rendering::mantle::api::{CPUInstanceData, MantleEvent, MantleRequest, MantleResponse}, horde::{geometry::{mat4::Mat4, rotation::Rotation, vec3d::Vec3Df}, rendering::camera::Camera}};
+use crate::{defaults::default_rendering::mantle::{api::{CPUInstanceData, MantleEvent, MantleRequest, MantleResponse}, textures::TextureAtlas}, horde::{geometry::{mat4::Mat4, rotation::Rotation, vec3d::Vec3Df}, rendering::camera::Camera}};
 
 
 pub type MemoryAllocator = Arc<vulkano::memory::allocator::GenericMemoryAllocator<vulkano::memory::allocator::FreeListAllocator>>;
@@ -14,7 +14,7 @@ pub struct Meshes {
 }
 
 impl Meshes {
-    pub fn apply_event(&mut self, event:MantleEvent) {
+    pub fn apply_event(&mut self, event:MantleEvent, textures:&mut TextureAtlas, builder:&mut vulkano::command_buffer::AutoCommandBufferBuilder<vulkano::command_buffer::PrimaryAutoCommandBuffer>) {
         match event.update {
             MantleRequest::SetGlobalLOD { mesh_id, lod } => {
                 self.get_mesh_mut(mesh_id).and_then(|mesh| {mesh.chosen_lod = lod; Some(1_u8)});
@@ -86,7 +86,7 @@ impl Meshes {
                                 | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
                             ..Default::default()
                         },
-                        apilod.vertex_data.iter().map(|vertex| {TriangleVertex {position:vertex.position.coords_to_array()}}),
+                        apilod.vertex_data.iter().map(|vertex| {TriangleVertex {position:vertex.position.coords_to_array(), uv:textures.get_uv_for(apilod.textures[vertex.texture_id as usize].clone(), vertex.u, vertex.v)}}),
                     )
                     .unwrap();
 
@@ -125,6 +125,10 @@ impl Meshes {
                 self.camera = new_cam;
                 event.response.send(MantleResponse::Success).unwrap();
             },
+            MantleRequest::CreateOrUpdateTexture { name, texture_data, width, height } => {
+                textures.add_or_update_texture(name, texture_data, width, height, builder);
+                event.response.send(MantleResponse::Success).unwrap();
+            }
         }
     }
     pub fn get_mesh_mut(&mut self, id:MeshID) -> Option<&mut Mesh> {
@@ -210,6 +214,8 @@ pub type MagicBuffer<T> = Vec<T>;
 pub struct TriangleVertex {
     #[format(R32G32B32_SFLOAT)]
     pub position: [f32; 3],
+    #[format(R32G32_SFLOAT)]
+    pub uv: [f32 ; 2]
 }
 
 /// The vertex type that describes the unique data per instance.

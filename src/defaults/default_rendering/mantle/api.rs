@@ -10,10 +10,14 @@ pub struct CPUInstanceData {
 }
 
 pub struct CPUVertexData {
-    pub position:Vec3Df
+    pub position:Vec3Df,
+    pub texture_id:u8,
+    pub u:f32,
+    pub v:f32,
 }
 
 pub struct ApiLod {
+    pub textures:Vec<String>,
     pub vertex_data:Vec<CPUVertexData>,
     pub index_data:Vec<IndexData>
 }
@@ -45,6 +49,12 @@ pub enum MantleRequest {
     },
     UpdateCamera {
         new_cam:Camera
+    },
+    CreateOrUpdateTexture {
+        name:String,
+        texture_data:Vec<u8>,
+        width:usize,
+        height:usize,
     }
 }
 pub struct MantleEvent {
