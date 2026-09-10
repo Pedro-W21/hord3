@@ -250,6 +250,15 @@ pub enum MeshID {
     DirectID(usize)
 }
 
+impl MeshID {
+    pub fn unwrap_name(&self) -> String {
+        match self {
+            Self::Name(name) => name.clone(),
+            Self::DirectID(_) => panic!("Unwrapped name on directID value")
+        }
+    }
+}
+
 /// The vertex type that describes the unique data per instance.
 #[derive(BufferContents, Vertex)]
 #[repr(C)]
