@@ -1,5 +1,6 @@
 use std::{f32::consts::PI, sync::{Arc, atomic::{AtomicU64, AtomicUsize}, mpmc::{Receiver, Sender, channel}}};
 
+use to_from_bytes_derive::{FromBytes, ToBytes};
 use vulkano::{buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, format, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter}, pipeline::graphics::vertex_input::Vertex};
 
 use crate::{defaults::default_rendering::mantle::{api::{CPUInstanceData, MantleEvent, MantleRequest, MantleResponse}, textures::TextureAtlas}, horde::{geometry::{mat4::Mat4, rotation::Rotation, vec3d::Vec3Df}, rendering::camera::Camera}};
@@ -72,7 +73,7 @@ impl Meshes {
                 });
             },
             MantleRequest::RemoveInstance { mesh_id, removed_id } => (),
-            MantleRequest::CreateOrUpdateMesh { name, lods, texture, first_instances } => {
+            MantleRequest::CreateOrUpdateMesh { name, lods, first_instances } => {
                 let meshlods:Vec<MeshLOD> = lods.into_iter().map(|apilod| {
 
                     let vertex_buffer = Buffer::from_iter(
@@ -104,7 +105,7 @@ impl Meshes {
                         apilod.index_data.iter().map(|index| {index.vertex}),
                     )
                     .unwrap();
-                    MeshLOD { vertex_buffer, indices: index_buffer, texture }
+                    MeshLOD { vertex_buffer, indices: index_buffer }
                 }).collect();
                 if let Some(mesh) = self.get_mesh_mut(MeshID::Name(name.clone())) {
                     mesh.lods = meshlods;
@@ -233,19 +234,17 @@ pub struct MeshLOD {
 
     pub vertex_buffer: Subbuffer<[TriangleVertex]>,
     pub indices:Subbuffer<[u32]>,
-    pub texture: TextureID
 }
 
 /// The vertex type that describes the unique data per instance.
-#[derive(BufferContents, Vertex)]
+#[derive(BufferContents, Vertex, Clone)]
 #[repr(C)]
 pub struct IndexData {
     #[format(R32_UINT)]
     pub vertex:u32,
-    #[format(R32G32_SFLOAT)]
-    pub u:[f32 ; 2],
 }
 
+#[derive(Clone, ToBytes, FromBytes)]
 pub enum MeshID {
     Name(String),
     DirectID(usize)

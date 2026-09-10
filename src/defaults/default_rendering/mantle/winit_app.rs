@@ -3,7 +3,7 @@
 // This is a simple, modified version of the `triangle.rs` example that demonstrates how we can use
 // the "instancing" technique with vulkano to draw many instances of the triangle.
 
-use std::{error::Error, sync::{Arc, RwLock, atomic::AtomicUsize, mpmc::{Receiver, Sender, channel}}};
+use std::{error::Error, sync::{Arc, RwLock, atomic::{AtomicUsize, Ordering}, mpmc::{Receiver, Sender, channel}}};
 use foldhash::HashSet;
 use smallvec::smallvec;
 use vulkano::{
@@ -20,13 +20,10 @@ use vulkano::{
     }, sync::{self, GpuFuture},
 };
 use winit::{
-    application::ApplicationHandler,
-    event::WindowEvent,
-    event_loop::{ActiveEventLoop, EventLoop},
-    window::{Window, WindowId},
+    application::ApplicationHandler, event::{KeyEvent, MouseButton, WindowEvent}, event_loop::{ActiveEventLoop, EventLoop}, keyboard::{Key, NamedKey}, window::{Window, WindowId},
 };
 
-use crate::{defaults::default_rendering::mantle::{api::{MantleEvent, MantleHandler, MantleResponse}, meshes::{CameraData, InstanceData, MemoryAllocator, Meshes, TriangleVertex}, textures::TextureAtlas}, horde::{geometry::{mat4::Mat4, vec3d::Vec3Df}, rendering::camera::Camera}};
+use crate::{defaults::default_rendering::mantle::{api::{MantleEvent, MantleHandler, MantleResponse}, meshes::{CameraData, InstanceData, MemoryAllocator, Meshes, TriangleVertex}, textures::TextureAtlas}, horde::{frontend::{MouseState, WindowingEvent, interact::Button}, geometry::{mat4::Mat4, vec3d::Vec3Df}, rendering::camera::Camera}};
 
 fn main() -> Result<(), impl Error> {
     let event_loop = EventLoop::new().unwrap();
@@ -44,7 +41,9 @@ pub struct App {
     memory_allocator:MemoryAllocator,
     meshes:Arc<RwLock<Meshes>>,
     textures:Arc<RwLock<TextureAtlas>>,
-    events:Receiver<MantleEvent>
+    events:Receiver<MantleEvent>,
+    window_events:Sender<WindowingEvent>,
+    mouse_state:MouseState
 }
 
 pub struct RenderContext {
@@ -130,7 +129,9 @@ impl App {
         let (sender, receiver) = channel();
         let (sender2, receiver2) = channel();
 
-        let handler = MantleHandler::new(sender, receiver2);
+        let (sender3, receiver3) = channel();
+        let mouse_state = MouseState::new();
+        let handler = MantleHandler::new(sender, receiver2, mouse_state.clone(), receiver3);
         (
             App {
                 instance,
@@ -142,6 +143,8 @@ impl App {
                 rcx: None,
                 events:receiver,
                 memory_allocator,
+                window_events:sender3,
+                mouse_state
             },
             handler
         )
@@ -344,6 +347,78 @@ impl ApplicationHandler for App {
         let rcx = self.rcx.as_mut().unwrap();
 
         match event {
+            WindowEvent::CursorMoved { device_id, position } => {
+                self.mouse_state.get_global_state().x.store(position.x as i32, Ordering::Relaxed);
+                self.mouse_state.get_global_state().y.store(position.y as i32, Ordering::Relaxed);
+            }
+            WindowEvent::MouseInput { device_id, state, button } => {
+                match button {
+                    MouseButton::Left => self.mouse_state.get_global_state().left.store(if state.is_pressed() {2} else {0}, Ordering::Relaxed),
+                    MouseButton::Right => self.mouse_state.get_global_state().right.store(if state.is_pressed() {2} else {0}, Ordering::Relaxed),
+                    _ => ()
+                }
+            }
+            WindowEvent::KeyboardInput { device_id, event, is_synthetic } => {
+                let key = match event.logical_key {
+                    Key::Named(key) => match key {
+                        NamedKey::Space => Some(Button::SpaceBar),
+                        NamedKey::Shift => Some(Button::LShift),
+                        NamedKey::Control => Some(Button::Ctrl),
+                        NamedKey::Tab => Some(Button::Tab),
+                        NamedKey::Escape => Some(Button::Escape),
+                        _ => None
+                    },
+                    Key::Character(chara) => Some(match chara.as_str().to_lowercase().as_str() {
+                        "a" => Button::A,
+                        "b" => Button::B,
+                        "c" => Button::C,
+                        "d" => Button::D,
+                        "e" => Button::E,
+                        "f" => Button::F,
+                        "g" => Button::G,
+                        "h" => Button::H,
+                        "i" => Button::I,
+                        "j" => Button::J,
+                        "k" => Button::K,
+                        "l" => Button::L,
+                        "m" => Button::M,
+                        "n" => Button::N,
+                        "o" => Button::O,
+                        "p" => Button::P,
+                        "q" => Button::Q,
+                        "r" => Button::R,
+                        "s" => Button::S,
+                        "t" => Button::T,
+                        "u" => Button::U,
+                        "v" => Button::V,
+                        "w" => Button::W,
+                        "x" => Button::X,
+                        "y" => Button::Y,
+                        "z" => Button::Z,
+
+                        "0" => Button::Zero,
+                        "1" => Button::One,
+                        "2" => Button::Two,
+                        "3" => Button::Three,
+                        "4" => Button::Four,
+                        "5" => Button::Five,
+                        "6" => Button::Six,
+                        "7" => Button::Seven,
+                        "8" => Button::Eight,
+                        "9" => Button::Nine,
+                        _ => Button::RShift
+                    }),
+                    Key::Unidentified(_) | Key::Dead(_) => None
+                };
+                if let Some(button) = key {
+                    if event.state.is_pressed() {
+                        self.window_events.send(WindowingEvent::new(crate::horde::frontend::WindowingEventVariant::KeyPress(button))).unwrap();
+                    }
+                    else {
+                        self.window_events.send(WindowingEvent::new(crate::horde::frontend::WindowingEventVariant::KeyRelease(button))).unwrap();
+                    }
+                }
+            }
             WindowEvent::CloseRequested => {
                 event_loop.exit();
             }

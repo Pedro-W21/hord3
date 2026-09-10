@@ -8,7 +8,7 @@ use syn::{self, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields::{sel
 #[cfg(test)]
 mod tests;
 
-#[proc_macro_derive(Entity, attributes(used_in_new, used_in_render, must_sync, position, static_id))]
+#[proc_macro_derive(Entity, attributes(used_in_new, used_in_render, must_sync, position, static_id, no_sync))]
 pub fn derive_entity(input: TokenStream) -> TokenStream {
     // Construct a representation of Rust code as a syntax tree
     // that we can manipulate
@@ -30,6 +30,8 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
     let mut tunnel_in_components = Vec::new();
+    let mut tunnel_in_can_sync_components = Vec::new();
+    let mut tunnel_in_no_sync_components = Vec::new();
     let mut tunnel_out_components = Vec::new();
     let mut arw_types = Vec::new();
     let mut arw_components = Vec::new();
@@ -44,6 +46,10 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
     let mut static_type_id_type = None;
     let mut must_sync_types = Vec::new();
     let mut must_sync_components = Vec::new();
+    let mut can_sync_types = Vec::new();
+    let mut can_sync_components = Vec::new();
+    let mut no_sync_types = Vec::new();
+    let mut no_sync_components = Vec::new();
 
 
     for field in &fields.named {
@@ -57,6 +63,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
         let mut must_sync = false;
         let mut position = false;
         let mut static_type_id = false;
+        let mut no_sync = false;
         for attr in &field.attrs {
             if attr.path.is_ident(&Ident::new("used_in_new", Span::call_site())) {
                 used_new = true;
@@ -66,6 +73,9 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
             }
             if attr.path.is_ident(&Ident::new("must_sync", Span::call_site())) {
                 must_sync = true;
+            }
+            if attr.path.is_ident(&Ident::new("no_sync", Span::call_site())) {
+                no_sync = true;
             }
             if attr.path.is_ident(&Ident::new("position", Span::call_site())) {
                 position = true;
@@ -105,6 +115,19 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
         if must_sync {
             must_sync_components.push(field.ident.as_ref().unwrap().clone());
             must_sync_types.push(field.ty.clone());
+            can_sync_components.push(field.ident.as_ref().unwrap().clone());
+            can_sync_types.push(field.ty.clone());
+            tunnel_in_can_sync_components.push(Ident::new(format!("{}_in", field.ident.as_ref().unwrap().clone()).trim(), Span::call_site()));
+        }
+        else if no_sync {
+            no_sync_components.push(field.ident.as_ref().unwrap().clone());
+            no_sync_types.push(field.ty.clone());
+            tunnel_in_no_sync_components.push(Ident::new(format!("{}_in", field.ident.as_ref().unwrap().clone()).trim(), Span::call_site()));
+        }
+        else {
+            can_sync_components.push(field.ident.as_ref().unwrap().clone());
+            can_sync_types.push(field.ty.clone());
+            tunnel_in_can_sync_components.push(Ident::new(format!("{}_in", field.ident.as_ref().unwrap().clone()).trim(), Span::call_site()));
         }
     }
 
@@ -167,7 +190,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                 #[derive(Clone, to_from_bytes_derive::ToBytes, to_from_bytes_derive::FromBytes, PartialEq)]
                 pub enum #sync_event_enum_id<ID:Identify> {
                     //CoolComponent(usize),
-                    #(#arw_components (<#arw_types as Component<ID>>::CE)),*,
+                    #(#can_sync_components (<#can_sync_types as Component<ID>>::CE)),*,
 
                     NewEnt { ent:#gen_new_ent_type<ID>, new_id:usize, made_by:Option<ID> }
                 }
@@ -175,13 +198,13 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                 impl<ID:Identify> #sync_event_enum_id<ID> {
                     pub fn get_source(&self) -> Option<ID> {
                         match &self {
-                            #(#sync_event_enum_id::#arw_components(evt) => evt.get_source()),*,
+                            #(#sync_event_enum_id::#can_sync_components(evt) => evt.get_source()),*,
                             #sync_event_enum_id::NewEnt {made_by, ..} => made_by.clone()
                         }
                     }
                     pub fn get_id(&self) -> EntityID {
                         match &self {
-                            #(#sync_event_enum_id::#arw_components(evt) => <<#arw_types as Component<ID>>::CE as ComponentEvent<#arw_types, ID>>::get_id(evt)),*,
+                            #(#sync_event_enum_id::#can_sync_components(evt) => <<#can_sync_types as Component<ID>>::CE as ComponentEvent<#can_sync_types, ID>>::get_id(evt)),*,
                             #sync_event_enum_id::NewEnt {new_id, ..} => new_id.clone()
                         }
                     }
@@ -236,12 +259,19 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                         let mut all_events_write = self.all_events.write().unwrap();
                         #(
                             {
-                                while let Ok(event) = self.tunnels_in.#tunnel_in_components.recv_timeout(std::time::Duration::from_nanos(10)) {
+                                while let Ok(event) = self.tunnels_in.#tunnel_in_can_sync_components.recv_timeout(std::time::Duration::from_nanos(10)) {
                                     if event.must_be_synced.is_server() {
-                                        to_sync_write.push(#sync_event_enum_id::#arw_components(event.event.clone()));
+                                        to_sync_write.push(#sync_event_enum_id::#can_sync_components(event.event.clone()));
                                     }
-                                    all_events_write.push(#sync_event_enum_id::#arw_components(event.event.clone()));
-                                    <<#arw_types as Component<ID>>::CE as ComponentEvent<#arw_types, ID>>::apply_to_component(event.event.clone(), &mut write_handler.#arw_components);
+                                    all_events_write.push(#sync_event_enum_id::#can_sync_components(event.event.clone()));
+                                    <<#can_sync_types as Component<ID>>::CE as ComponentEvent<#can_sync_types, ID>>::apply_to_component(event.event.clone(), &mut write_handler.#can_sync_components);
+                                }
+                            }
+                        );* ;
+                        #(
+                            {
+                                while let Ok(event) = self.tunnels_in.#tunnel_in_no_sync_components.recv_timeout(std::time::Duration::from_nanos(10)) {
+                                    <<#no_sync_types as Component<ID>>::CE as ComponentEvent<#no_sync_types, ID>>::apply_to_component(event.event.clone(), &mut write_handler.#no_sync_components);
                                 }
                             }
                         );* ;
@@ -259,11 +289,18 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                     else {
                         #(
                             {
-                                while let Ok(event) = self.tunnels_in.#tunnel_in_components.recv_timeout(std::time::Duration::from_nanos(10)) {
+                                while let Ok(event) = self.tunnels_in.#tunnel_in_can_sync_components.recv_timeout(std::time::Duration::from_nanos(10)) {
                                     if event.must_be_synced.is_client() {
-                                        to_sync_write.push(#sync_event_enum_id::#arw_components(event.event.clone()));
+                                        to_sync_write.push(#sync_event_enum_id::#can_sync_components(event.event.clone()));
                                     }
-                                    <<#arw_types as Component<ID>>::CE as ComponentEvent<#arw_types, ID>>::apply_to_component(event.event.clone(), &mut write_handler.#arw_components);
+                                    <<#can_sync_types as Component<ID>>::CE as ComponentEvent<#can_sync_types, ID>>::apply_to_component(event.event.clone(), &mut write_handler.#can_sync_components);
+                                }
+                            }
+                        );* ;
+                        #(
+                            {
+                                while let Ok(event) = self.tunnels_in.#tunnel_in_no_sync_components.recv_timeout(std::time::Duration::from_nanos(10)) {
+                                    <<#no_sync_types as Component<ID>>::CE as ComponentEvent<#no_sync_types, ID>>::apply_to_component(event.event.clone(), &mut write_handler.#no_sync_components);
                                 }
                             }
                         );* ;
@@ -284,19 +321,19 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                 pub fn change_component<'a>(&'a self, component:#sync_component_enum_id, id:usize) {
                     let mut write_handler = self.get_write();
                     match component {
-                        #(#sync_component_enum_id::#arw_components (data) => {write_handler.#arw_components[id] = data}),*,
+                        #(#sync_component_enum_id::#can_sync_components (data) => {write_handler.#can_sync_components[id] = data}),*,
                     }
                 }
                 pub fn is_that_component_correct(&self, component:#sync_component_enum_id, id:usize) -> bool {
                     let mut read_handler = self.get_read();
                     match component {
-                        #(#sync_component_enum_id::#arw_components (data) => {read_handler.#arw_components[id] == data}),*,
+                        #(#sync_component_enum_id::#can_sync_components (data) => {read_handler.#can_sync_components[id] == data}),*,
                     }
                 }
                 pub fn apply_one_event<'a>(&'a self, event:#sync_event_enum_id<ID>) {
                     let mut write_handler = self.get_write();
                     match event {
-                        #(#sync_event_enum_id::#arw_components (sub_event) => <<#arw_types as Component<ID>>::CE as ComponentEvent<#arw_types, ID>>::apply_to_component(sub_event, &mut write_handler.#arw_components)),*,
+                        #(#sync_event_enum_id::#can_sync_components (sub_event) => <<#can_sync_types as Component<ID>>::CE as ComponentEvent<#can_sync_types, ID>>::apply_to_component(sub_event, &mut write_handler.#can_sync_components)),*,
                         #sync_event_enum_id::NewEnt{ent, new_id, made_by} => {write_handler.new_ent(ent);}, 
                     }
                 }
@@ -416,7 +453,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
 
         #[derive(Clone, to_from_bytes_derive::ToBytes, to_from_bytes_derive::FromBytes, PartialEq)]
         pub enum #sync_component_enum_id {
-            #(#arw_components (#arw_types)),*,
+            #(#can_sync_components (#can_sync_types)),*,
         }
         
         #[derive(Clone)]

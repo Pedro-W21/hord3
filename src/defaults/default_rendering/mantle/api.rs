@@ -1,14 +1,16 @@
-use std::sync::{Arc, RwLock, RwLockReadGuard, mpmc::{Receiver, Sender}};
+use std::sync::{Arc, RwLock, RwLockReadGuard, mpmc::{Receiver, Sender, channel}};
 
-use crate::{defaults::default_rendering::mantle::meshes::{IndexData, InstanceIDGenerator, MeshID, TextureID}, horde::{geometry::{rotation::{Orientation, Rotation}, vec3d::Vec3Df}, rendering::camera::Camera, scheduler::IndividualTask}};
+use crate::{defaults::default_rendering::mantle::{meshes::{IndexData, InstanceIDGenerator, MeshID, TextureID}, textures::{buffer_to_request, load_single_texture}}, horde::{frontend::{MouseState, WindowingEvent}, geometry::{rotation::{Orientation, Rotation}, vec3d::Vec3Df}, rendering::camera::Camera, scheduler::IndividualTask}};
 
 
+#[derive(Clone)]
 pub struct CPUInstanceData {
     pub position:Vec3Df,
     pub speed:Vec3Df,
     pub rotation:Rotation,
 }
 
+#[derive(Clone)]
 pub struct CPUVertexData {
     pub position:Vec3Df,
     pub texture_id:u8,
@@ -16,6 +18,7 @@ pub struct CPUVertexData {
     pub v:f32,
 }
 
+#[derive(Clone)]
 pub struct ApiLod {
     pub textures:Vec<String>,
     pub vertex_data:Vec<CPUVertexData>,
@@ -44,7 +47,6 @@ pub enum MantleRequest {
     CreateOrUpdateMesh {
         name:String,
         lods:Vec<ApiLod>,
-        texture:TextureID,
         first_instances:Vec<CPUInstanceData>
     },
     UpdateCamera {
@@ -72,7 +74,9 @@ pub enum MantleResponse {
 pub struct MantleHandler {
     pub event_sender:Sender<MantleEvent>,
     mesh_creation_receiver:Receiver<MantleResponse>,
-    mesh_datas:Arc<RwLock<Vec<CPUMeshData>>>
+    mesh_datas:Arc<RwLock<Vec<CPUMeshData>>>,
+    mouse_state:MouseState,
+    outside_events:Receiver<WindowingEvent>
 }
 
 impl MantleHandler {
@@ -93,14 +97,77 @@ impl MantleHandler {
             }
         }
     }
-    pub fn new(event_sender:Sender<MantleEvent>, mesh_creation_receiver:Receiver<MantleResponse>) -> Self {
-        Self { event_sender, mesh_creation_receiver, mesh_datas: Arc::new(RwLock::new(Vec::with_capacity(128))) }
+    pub fn new(event_sender:Sender<MantleEvent>, mesh_creation_receiver:Receiver<MantleResponse>, mouse_state:MouseState, outside_events:Receiver<WindowingEvent>) -> Self {
+        Self { event_sender, mesh_creation_receiver, mesh_datas: Arc::new(RwLock::new(Vec::with_capacity(128))), mouse_state, outside_events }
     }
     pub fn get_meshes<'a>(&'a self) -> RwLockReadGuard<'a, Vec<CPUMeshData>> {
         self.mesh_datas.read().unwrap()
     }
+    pub fn get_write(&self) -> MantleHandler {
+        self.clone()
+    }
+    pub fn get_mouse_state(&self) -> MouseState {
+        self.mouse_state.clone()
+    }
+    pub fn get_outside_events(&self) -> Receiver<WindowingEvent> {
+        self.outside_events.clone()
+    }
+    pub fn set_or_add_mesh(&self, name:String, lods:Vec<ApiLod>, first_instances:Vec<CPUInstanceData>) -> Receiver<MantleResponse> {
+        let (s,r) = channel();
+        self.event_sender.send(MantleEvent {
+            update: MantleRequest::CreateOrUpdateMesh { name, lods, first_instances },
+            response: s
+        }).unwrap();
+        r
+    }
+    pub fn get_mesh(&self, mesh_id:MeshID) -> Option<CPUMeshData> {
+        match mesh_id {
+            MeshID::DirectID(i) => self.mesh_datas.read().unwrap().get(i).cloned(),
+            MeshID::Name(name) => self.mesh_datas.read().unwrap().iter().find(|a| {a.name == name}).cloned(),
+        }
+    }
+    pub fn add_instance(&self, mesh_id:MeshID, new_data:CPUInstanceData) -> (usize, Receiver<MantleResponse>) {
+        let (s,r) = channel();
+        let mesh_data = self.get_mesh(mesh_id.clone()).unwrap();
+        let id = mesh_data.instance_id_generator.get_next_id();
+        self.event_sender.send(MantleEvent {
+            update: MantleRequest::CreateInstance { mesh_id, chosen_id: id, new_data },
+            response: s
+        }).unwrap();
+        (id, r)
+    }
+    pub fn update_instance(&self, mesh_id:MeshID, instance:usize, new_data:CPUInstanceData) -> Receiver<MantleResponse> {
+
+        let (s,r) = channel();
+        self.event_sender.send(MantleEvent {
+            update: MantleRequest::UpdateInstance { mesh_id, instance, new_data },
+            response: s
+        }).unwrap();
+        r
+    }
+    pub fn update_camera(&self, new_cam:Camera) -> Receiver<MantleResponse> {
+
+        let (s,r) = channel();
+        self.event_sender.send(MantleEvent {
+            update: MantleRequest::UpdateCamera { new_cam },
+            response: s
+        }).unwrap();
+        r
+    }
+    pub fn create_or_update_texture(&self, texture_path:&str, texture_name:String) -> Receiver<MantleResponse> {
+        let text = load_single_texture(texture_path).expect("Texture couldn't be loaded");
+        let req = buffer_to_request(texture_name.clone(), text);
+
+        let (s,r) = channel();
+        self.event_sender.send(MantleEvent {
+            update: req,
+            response: s
+        }).unwrap();
+        r
+    }
 }
 
+#[derive(Clone)]
 pub struct CPUMeshData {
     instance_id_generator:InstanceIDGenerator,
     name:String,

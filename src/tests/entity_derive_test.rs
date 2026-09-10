@@ -86,6 +86,7 @@ pub struct CoolEntity {
     #[static_id]
     pub pos:CoolComponent,
     #[used_in_render]
+    #[no_sync]
     pub instance_id:Option<usize>,
 }
 
