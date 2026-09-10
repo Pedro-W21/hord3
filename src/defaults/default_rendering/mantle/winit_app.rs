@@ -610,11 +610,7 @@ impl ApplicationHandler for App {
                 builder.end_render_pass(Default::default()).unwrap();
 
                 let command_buffer = builder.build().unwrap();
-                let future = rcx
-                    .previous_frame_end
-                    .take()
-                    .unwrap()
-                    .join(acquire_future)
+                let future = acquire_future
                     .then_execute(self.queue.clone(), command_buffer)
                     .unwrap()
                     .then_swapchain_present(
