@@ -244,7 +244,7 @@ pub struct IndexData {
     pub vertex:u32,
 }
 
-#[derive(Clone, ToBytes, FromBytes)]
+#[derive(Clone, ToBytes, FromBytes, PartialEq, Eq)]
 pub enum MeshID {
     Name(String),
     DirectID(usize)
