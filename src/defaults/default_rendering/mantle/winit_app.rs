@@ -429,10 +429,11 @@ impl ApplicationHandler for App {
                 
                 let window_size = rcx.window.inner_size();
 
-
-
                 if window_size.width == 0 || window_size.height == 0 {
                     return;
+                }
+                if let Some(future) = rcx.previous_frame_end.take() {
+                    future.flush().unwrap(); 
                 }
                 rcx.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
