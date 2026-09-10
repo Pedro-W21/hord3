@@ -18,6 +18,12 @@ pub struct CPUVertexData {
     pub v:f32,
 }
 
+impl CPUVertexData {
+    pub fn new(position:Vec3Df, texture_id:u8, u:f32, v:f32) -> Self {
+        Self { position, texture_id, u, v }
+    }
+}
+
 #[derive(Clone)]
 pub struct ApiLod {
     pub textures:Vec<String>,

@@ -10,12 +10,13 @@
 //! 
 //! There are many common things reimplemented in this project, like serialization/deserialization or array vecs for example. This is knowingly done as a learning exercise, and is very likely worse than more popular implementations
 //! 
-//! This also requires the nightly toolchain to compile, as it uses the `portable_simd`, `sync_unsafe_cell`, `extend_one` and `mpmc_channel` experimental features
+//! This also requires the nightly toolchain to compile, as it uses the `portable_simd`, `sync_unsafe_cell`, `extend_one`, `vec_into_chunks` and `mpmc_channel` experimental features
 
 #![feature(portable_simd)]
 #![feature(sync_unsafe_cell)]
 #![feature(extend_one)]
 #![feature(mpmc_channel)]
+#![feature(vec_into_chunks)]
 pub mod horde;
 pub mod defaults;
 pub mod tests;

@@ -4,6 +4,7 @@ pub mod meshes;
 pub mod api;
 pub mod winit_app;
 pub mod textures;
+pub mod shapes_to_tris;
 
 mod cs {
     vulkano_shaders::shader!{
