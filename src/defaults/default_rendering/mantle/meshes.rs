@@ -78,37 +78,70 @@ impl Meshes {
             MantleRequest::CreateOrUpdateMesh { name, lods, first_instances } => {
                 let show = lods[0].index_data.len() > 0;
                 let meshlods:Vec<MeshLOD> = lods.into_iter().map(|apilod| {
+                    if apilod.vertex_data.len() > 0 {
+                        let vertex_buffer = Buffer::from_iter(
+                            self.allocator.clone(),
+                            BufferCreateInfo {
+                                usage: BufferUsage::VERTEX_BUFFER,
+                                ..Default::default()
+                            },
+                            AllocationCreateInfo {
+                                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                                ..Default::default()
+                            },
+                            apilod.vertex_data.iter().map(|vertex| {TriangleVertex {position:vertex.position.coords_to_array(), uv:textures.get_uv_for(apilod.textures[vertex.texture_id as usize].clone(), vertex.u, vertex.v)}}),
+                        )
+                        .unwrap();
 
-                    let vertex_buffer = Buffer::from_iter(
-                        self.allocator.clone(),
-                        BufferCreateInfo {
-                            usage: BufferUsage::VERTEX_BUFFER,
-                            ..Default::default()
-                        },
-                        AllocationCreateInfo {
-                            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                                | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                            ..Default::default()
-                        },
-                        apilod.vertex_data.iter().map(|vertex| {TriangleVertex {position:vertex.position.coords_to_array(), uv:textures.get_uv_for(apilod.textures[vertex.texture_id as usize].clone(), vertex.u, vertex.v)}}),
-                    )
-                    .unwrap();
+                        let index_buffer = Buffer::from_iter(
+                            self.allocator.clone(),
+                            BufferCreateInfo {
+                                usage: BufferUsage::INDEX_BUFFER,
+                                ..Default::default()
+                            },
+                            AllocationCreateInfo {
+                                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                                ..Default::default()
+                            },
+                            apilod.index_data.iter().map(|index| {index.vertex}),
+                        )
+                        .unwrap();
+                        MeshLOD { vertex_buffer, indices: index_buffer }
+                    }
+                    else {
+                        let vertex_buffer = Buffer::from_iter(
+                            self.allocator.clone(),
+                            BufferCreateInfo {
+                                usage: BufferUsage::VERTEX_BUFFER,
+                                ..Default::default()
+                            },
+                            AllocationCreateInfo {
+                                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                                ..Default::default()
+                            },
+                            [TriangleVertex {position:[0.0, 0.0, 0.0], uv:[0.0, 0.0]}, TriangleVertex {position:[0.0, 1.0, 0.0], uv:[1.0, 0.0]}, TriangleVertex {position:[1.0, 0.0, 0.0], uv:[0.0, 1.0]}]
+                        )
+                        .unwrap();
 
-                    let index_buffer = Buffer::from_iter(
-                        self.allocator.clone(),
-                        BufferCreateInfo {
-                            usage: BufferUsage::INDEX_BUFFER,
-                            ..Default::default()
-                        },
-                        AllocationCreateInfo {
-                            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                                | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                            ..Default::default()
-                        },
-                        apilod.index_data.iter().map(|index| {index.vertex}),
-                    )
-                    .unwrap();
-                    MeshLOD { vertex_buffer, indices: index_buffer }
+                        let index_buffer = Buffer::from_iter(
+                            self.allocator.clone(),
+                            BufferCreateInfo {
+                                usage: BufferUsage::INDEX_BUFFER,
+                                ..Default::default()
+                            },
+                            AllocationCreateInfo {
+                                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                                ..Default::default()
+                            },
+                            [0, 1, 2],
+                        )
+                        .unwrap();
+                        MeshLOD { vertex_buffer, indices: index_buffer }
+                    }
                 }).collect();
                 if let Some(mesh) = self.get_mesh_mut(MeshID::Name(name.clone())) {
                     mesh.lods = meshlods;
@@ -170,6 +203,9 @@ impl Instances {
         for instance in first_instances {
             data.push(InstanceData { world_position: instance.position.coords_to_array(), scale: 1.0});
         }
+        if data.len() == 0 {
+            data.push(InstanceData { world_position: [0.0, 0.0, 0.0], scale: 0.0 });
+        }
         let instance_buffer = Buffer::from_iter(
             allocator,
             BufferCreateInfo {
@@ -178,7 +214,7 @@ impl Instances {
             },
             AllocationCreateInfo {
                 memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                    | MemoryTypeFilter::HOST_RANDOM_ACCESS,
                 ..Default::default()
             },
             data,
