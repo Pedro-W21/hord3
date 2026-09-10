@@ -582,7 +582,7 @@ impl ApplicationHandler for App {
                 for mesh in &self.meshes.read().unwrap().meshes {
                     if mesh.show {
                         // We pass both our lists of vertices here.
-                        let lod = &mesh.lods[0];
+                        let lod = mesh.lods.last().unwrap();
                         builder.bind_vertex_buffers(
                             0,
                             (lod.vertex_buffer.clone(), mesh.instances.instance_buffer.clone()),
