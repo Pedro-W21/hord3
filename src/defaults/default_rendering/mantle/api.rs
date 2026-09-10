@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock, RwLockReadGuard, mpmc::{Receiver, Sender, channel}};
+use std::{collections::HashMap, sync::{Arc, RwLock, RwLockReadGuard, mpmc::{Receiver, Sender, channel}}};
 
 use crate::{defaults::default_rendering::mantle::{meshes::{IndexData, InstanceIDGenerator, MeshID, TextureID}, textures::{buffer_to_request, load_single_texture}}, horde::{frontend::{MouseState, WindowingEvent}, geometry::{rotation::{Orientation, Rotation}, vec3d::Vec3Df}, rendering::camera::Camera, scheduler::IndividualTask}};
 
@@ -47,6 +47,29 @@ impl ApiLod {
         self.index_data.push(IndexData { vertex: p1.index as u32 });
         self.index_data.push(IndexData { vertex: p2.index as u32 });
         self.index_data.push(IndexData { vertex: p3.index as u32 });
+    }
+    pub fn merge_with(&mut self, other:ApiLod) {
+        let mut textures_lookup = HashMap::with_capacity(other.textures.len());
+        for text in &other.textures {
+            match self.textures.iter().enumerate().find(|(i, name)| {
+                name == &text
+            }) {
+                Some(matched) => {
+                    textures_lookup.insert(text.clone(), matched.0);
+                },
+                None => {
+                    textures_lookup.insert(text.clone(), self.textures.len());
+                    self.textures.push(text.clone());
+                }
+            }
+        }
+        let self_len = self.vertex_data.len();
+        for v in other.vertex_data {
+            self.vertex_data.push(CPUVertexData { position: v.position, texture_id: *textures_lookup.get(&other.textures[v.texture_id as usize]).unwrap() as u8, u: v.u, v: v.v });
+        }
+        for i in other.index_data {
+            self.index_data.push(IndexData { vertex: i.vertex + self_len as u32 });
+        }
     }
 }
 
