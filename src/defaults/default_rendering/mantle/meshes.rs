@@ -74,6 +74,7 @@ impl Meshes {
             },
             MantleRequest::RemoveInstance { mesh_id, removed_id } => (),
             MantleRequest::CreateOrUpdateMesh { name, lods, first_instances } => {
+                let show = lods[0].index_data.len() > 0;
                 let meshlods:Vec<MeshLOD> = lods.into_iter().map(|apilod| {
 
                     let vertex_buffer = Buffer::from_iter(
@@ -109,13 +110,14 @@ impl Meshes {
                 }).collect();
                 if let Some(mesh) = self.get_mesh_mut(MeshID::Name(name.clone())) {
                     mesh.lods = meshlods;
+                    mesh.show = show;
                     event.response.send(MantleResponse::Success).unwrap();
                 }
                 else {
                     let id = self.meshes.len();
                     let instances = Instances::new(first_instances, self.allocator.clone());
                     let id_generator = instances.id_generator.clone();
-                    self.meshes.push(Mesh { name:name.clone(), lods:meshlods, instances, chosen_lod: None });
+                    self.meshes.push(Mesh { name:name.clone(), lods:meshlods, instances, chosen_lod: None, show });
                     self.mesh_creation_sender.send(MantleResponse::MeshCreated { id_generator:id_generator.clone(), direct_id:id, name:name.clone() }).unwrap();
                     event.response.send(MantleResponse::MeshCreated { id_generator, direct_id:id, name }).unwrap();
                 }
@@ -149,7 +151,8 @@ pub struct Mesh {
     pub name:String,
     pub lods:Vec<MeshLOD>,
     pub instances:Instances,
-    pub chosen_lod:Option<usize>
+    pub chosen_lod:Option<usize>,
+    pub show:bool
 }
 
 pub struct Instances {

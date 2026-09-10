@@ -434,7 +434,6 @@ impl ApplicationHandler for App {
                 if window_size.width == 0 || window_size.height == 0 {
                     return;
                 }
-
                 rcx.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
                 if rcx.recreate_swapchain {
@@ -580,28 +579,31 @@ impl ApplicationHandler for App {
                     ).unwrap();
             
                 for mesh in &self.meshes.read().unwrap().meshes {
-                    // We pass both our lists of vertices here.
-                    let lod = &mesh.lods[0];
-                    builder.bind_vertex_buffers(
-                        0,
-                        (lod.vertex_buffer.clone(), mesh.instances.instance_buffer.clone()),
-                    )
-                    .unwrap();
-                    builder.bind_index_buffer(
-                        lod.indices.clone()
-                    )
-                    .unwrap();
-
-                    unsafe {
-                        builder.draw_indexed(
-                            lod.vertex_buffer.len() as u32,
-                            mesh.instances.instance_buffer.len() as u32,
+                    if mesh.show {
+                        // We pass both our lists of vertices here.
+                        let lod = &mesh.lods[0];
+                        builder.bind_vertex_buffers(
                             0,
-                            0,
-                            0
+                            (lod.vertex_buffer.clone(), mesh.instances.instance_buffer.clone()),
                         )
+                        .unwrap();
+                        builder.bind_index_buffer(
+                            lod.indices.clone()
+                        )
+                        .unwrap();
+
+                        unsafe {
+                            builder.draw_indexed(
+                                lod.vertex_buffer.len() as u32,
+                                mesh.instances.instance_buffer.len() as u32,
+                                0,
+                                0,
+                                0
+                            )
+                        }
+                        .unwrap();
                     }
-                    .unwrap();
+                    
                 }
 
                 builder.end_render_pass(Default::default()).unwrap();
