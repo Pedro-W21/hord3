@@ -432,10 +432,10 @@ impl ApplicationHandler for App {
                 if window_size.width == 0 || window_size.height == 0 {
                     return;
                 }
-                if let Some(future) = rcx.previous_frame_end.take() {
+                if let Some(mut future) = rcx.previous_frame_end.take() {
+                    future.cleanup_finished();
                     future.flush().unwrap(); 
                 }
-                rcx.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
                 if rcx.recreate_swapchain {
                     let (new_swapchain, new_images) = rcx
