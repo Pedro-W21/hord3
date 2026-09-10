@@ -32,6 +32,16 @@ impl ApiLod {
     pub fn new_simple(textures:Vec<String>, vertex_data:Vec<CPUVertexData>, index_data:Vec<u32>) -> Self {
         Self { textures, vertex_data, index_data:index_data.into_iter().map(|id| {IndexData {vertex:id}}).collect() }
     }
+    pub fn add_points<const N:usize>(&mut self, points:[CPUVertexData ; N]) {
+        for point in points {
+            self.vertex_data.push(point);
+        }
+    }
+    pub fn add_triangle(&mut self, p1:TrianglePoint, p2:TrianglePoint, p3:TrianglePoint) {
+        self.index_data.push(IndexData { vertex: p1.index as u32 });
+        self.index_data.push(IndexData { vertex: p2.index as u32 });
+        self.index_data.push(IndexData { vertex: p3.index as u32 });
+    }
 }
 
 pub enum MantleRequest {
@@ -192,5 +202,21 @@ impl IndividualTask for MantleHandler {
             },
             i => panic!("Task ID {i} not supported for this type")
         }
+    }
+}
+
+
+pub struct TrianglePoint {
+    pub index:usize,
+    pub u:f32,
+    pub v:f32,
+    pub r:u8,
+    pub g:u8,
+    pub b:u8
+}
+
+impl TrianglePoint {
+    pub fn new(index:usize, u:f32, v:f32, r:u8, g:u8, b:u8) -> Self {
+        Self { index, u, v, r, g, b }
     }
 }
