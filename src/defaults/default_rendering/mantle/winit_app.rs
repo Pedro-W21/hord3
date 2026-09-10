@@ -595,7 +595,7 @@ impl ApplicationHandler for App {
 
                         unsafe {
                             builder.draw_indexed(
-                                lod.vertex_buffer.len() as u32,
+                                lod.indices.len() as u32,
                                 mesh.instances.instance_buffer.len() as u32,
                                 0,
                                 0,
