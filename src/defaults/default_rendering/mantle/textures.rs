@@ -72,7 +72,8 @@ impl TextureAtlas {
             None => {
                 let (x,y) = self.get_next_texture_position(t_width, t_height);
                 let pos = AtlasPosition { width: t_width, height: t_height, x, y, u_origin: (x as f32)/(self.width as f32), v_origin: (y as f32)/(self.height as f32) };
-                self.position_mapper.insert(texture_name, pos.clone());
+                self.position_mapper.insert(texture_name.clone(), pos.clone());
+                self.latest_texture = Some(texture_name);
                 pos
             }
         };
