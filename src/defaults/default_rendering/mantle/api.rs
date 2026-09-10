@@ -25,6 +25,15 @@ pub struct ApiLod {
     pub index_data:Vec<IndexData>
 }
 
+impl ApiLod {
+    pub fn new(textures:Vec<String>, vertex_data:Vec<CPUVertexData>, index_data:Vec<IndexData>) -> Self {
+        Self { textures, vertex_data, index_data }
+    }
+    pub fn new_simple(textures:Vec<String>, vertex_data:Vec<CPUVertexData>, index_data:Vec<u32>) -> Self {
+        Self { textures, vertex_data, index_data:index_data.into_iter().map(|id| {IndexData {vertex:id}}).collect() }
+    }
+}
+
 pub enum MantleRequest {
     UpdateInstance {
         mesh_id:MeshID,
