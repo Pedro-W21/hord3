@@ -176,7 +176,7 @@ impl Meshes {
         }
     }
     pub fn get_new_camdata(&self, aspect_ratio:f32) -> CameraData {
-        let view = Mat4::look_to(self.camera.pos, self.camera.orient.into_vec(), Vec3Df::new(0.0, 0.0, 1.0));
+        let view = Mat4::look_to(self.camera.pos, self.camera.orient.into_vec(), Vec3Df::new(self.camera.orient.roll.sin(), self.camera.orient.roll.cos(), 0.0));
         let projection = Mat4::perspective(PI/3.0, aspect_ratio, 1.0, 1000.0);
         CameraData::from_view_projection(view, projection)
     }
