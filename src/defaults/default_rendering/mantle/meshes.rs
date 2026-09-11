@@ -69,7 +69,7 @@ impl Meshes {
             MantleRequest::UpdateInstance { mesh_id, instance, new_data } => {
                 self.get_mesh_mut(mesh_id).and_then(|mesh| {
                     let mut instances = mesh.instances.instance_buffer.write().unwrap();
-                    instances.get_mut(instance).and_then(|data| {*data = InstanceData { world_position: new_data.position.coords_to_array(), scale: 1.0}; Some(1_u8)});
+                    instances.get_mut(instance).and_then(|data| {*data = InstanceData { world_position: [new_data.position.x, new_data.position.z, -new_data.position.y], scale: 1.0}; Some(1_u8)});
                     Some(1_u8)
                 });
                 event.response.send(MantleResponse::Success);
@@ -90,7 +90,7 @@ impl Meshes {
                                     | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
                                 ..Default::default()
                             },
-                            apilod.vertex_data.iter().map(|vertex| {TriangleVertex {position:vertex.position.coords_to_array(), uv:textures.get_uv_for(apilod.textures[vertex.texture_id as usize].clone(), vertex.u, vertex.v)}}),
+                            apilod.vertex_data.iter().map(|vertex| {TriangleVertex {position:[vertex.position.x, vertex.position.z, -vertex.position.y], uv:textures.get_uv_for(apilod.textures[vertex.texture_id as usize].clone(), vertex.u, vertex.v)}}),
                         )
                         .unwrap();
 
@@ -176,7 +176,8 @@ impl Meshes {
         }
     }
     pub fn get_new_camdata(&self, aspect_ratio:f32) -> CameraData {
-        let view = Mat4::look_to(self.camera.pos, self.camera.orient.into_vec(), Vec3Df::new(self.camera.orient.roll.sin(), self.camera.orient.roll.cos(), 0.0));
+        let dir = self.camera.orient.into_vec();
+        let view = Mat4::look_to(self.camera.pos, Vec3Df::new(dir.x, dir.z, -dir.y), Vec3Df::new(self.camera.orient.roll.sin(), self.camera.orient.roll.cos(), 0.0));
         let projection = Mat4::perspective(PI/3.0, aspect_ratio, 1.0, 1000.0);
         CameraData::from_view_projection(view, projection)
     }
@@ -201,7 +202,7 @@ impl Instances {
         let mut data = Vec::with_capacity(first_instances.len());
         let highest_id = first_instances.len();
         for instance in first_instances {
-            data.push(InstanceData { world_position: instance.position.coords_to_array(), scale: 1.0});
+            data.push(InstanceData { world_position: [instance.position.x, instance.position.z, -instance.position.y], scale: 1.0});
         }
         if data.len() == 0 {
             data.push(InstanceData { world_position: [0.0, 0.0, 0.0], scale: 0.0 });
