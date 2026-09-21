@@ -58,7 +58,7 @@ pub fn singleplayer_test() {
     let world = SinglePWorld { test: 1};
     let entity_vec = CoolEntityVec::new(1000);
     {
-        entity_vec.get_write().new_ent(NewCoolEntity::new(CoolComponent {pos:Vec3Df::zero()}, MustSync::No, None));
+        entity_vec.get_write().new_ent(NewCoolEntity::new(CoolComponent {pos:Vec3Df::zero()}, MustSync::No, None, None));
     }
     
     let windowing = WindowingHandler::new::<MiniFBWindow>(HordeWindowDimensions::new(1280, 720), HordeColorFormat::ARGB8888);

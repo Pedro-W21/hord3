@@ -1,3 +1,5 @@
+use std::sync::{Arc, atomic::AtomicUsize};
+
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use to_from_bytes::{FromBytes, ToBytes};
 use to_from_bytes_derive::{FromBytes, ToBytes};
@@ -75,6 +77,46 @@ impl<ID:Identify, C:Component<ID>, SCU:SimpleComponentUpdate<C, ID>> ComponentEv
     }
     fn apply_to_component(self, components:&mut Vec<C>) {
         self.update.apply_to_comp(&mut components[self.id]);
+    }
+}
+
+#[derive(Clone, Copy, FromBytes, ToBytes, Debug, Hash, PartialEq, Eq)]
+pub struct ChosenID {
+    id:EntityID
+}
+
+impl ChosenID {
+    pub fn get_id(&self) -> usize {
+        self.id
+    }
+}
+
+#[derive(Clone)]
+pub struct EntityIDAllocator {
+    dead_queue_s:Sender<EntityID>,
+    dead_queue_r:Receiver<EntityID>,
+    highest_id:Arc<AtomicUsize>
+}
+
+impl EntityIDAllocator {
+    pub fn new(initial_highest:usize) -> Self {
+        let (s,r) = unbounded();
+        Self { dead_queue_s: s, dead_queue_r: r, highest_id: Arc::new(AtomicUsize::new(initial_highest)) }
+    }
+    pub fn get_next_id(&self) -> ChosenID {
+        match self.dead_queue_r.try_recv() {
+            Ok(id) => ChosenID { id },
+            Err(_) => ChosenID { id: self.highest_id.fetch_add(1, std::sync::atomic::Ordering::Relaxed) },
+        }
+    }
+    pub fn kill_entity(&self, id:EntityID) {
+        self.dead_queue_s.send(id).unwrap();
+    }
+    pub fn set_highest_id(&self, id:EntityID) {
+        self.highest_id.store(id, std::sync::atomic::Ordering::Relaxed);
+    }
+    pub fn get_highest_id(&self) -> EntityID {
+        self.highest_id.load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 

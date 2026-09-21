@@ -172,15 +172,17 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                 pub struct #gen_new_ent_type<ID:Identify> {
                     #(#used_new_components:#used_new_types),* ,
                     must_be_synced:MustSync,
-                    created_by:Option<ID>
+                    created_by:Option<ID>,
+                    chosen_id:Option<ChosenID>
                 }
 
                 impl<ID:Identify> #gen_new_ent_type<ID> {
-                    pub fn new(#(#used_new_components:#used_new_types),*, must_be_synced:MustSync, created_by:Option<ID>) -> Self {
+                    pub fn new(#(#used_new_components:#used_new_types),*, must_be_synced:MustSync, created_by:Option<ID>, chosen_id:Option<ChosenID>) -> Self {
                         Self {
                             #(#used_new_components),* ,
                             must_be_synced,
-                            created_by
+                            created_by,
+                            chosen_id
                         }
                     }
                     pub fn get_static_type_id(&self) -> usize {
@@ -227,7 +229,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                     pub static_types:std::sync::Arc<std::sync::RwLock<Vec<#static_type_ident<ID>>>>,
                     pub tunnels_in:#gen_vec_tunnels_in<ID>,
                     pub tunnels_out:#gen_vec_tunnels_out<ID>,
-                    pub available_entities:std::sync::Arc<std::sync::RwLock<std::collections::VecDeque<EntityID>>>,
+                    pub entity_id_allocator:EntityIDAllocator,
                     pub stops:EVecStopsIn,
                     pub to_sync:std::sync::Arc<std::sync::RwLock<Vec<#sync_event_enum_id<ID>>>>,
                     pub all_events:std::sync::Arc<std::sync::RwLock<Vec<#sync_event_enum_id<ID>>>>
@@ -238,7 +240,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                     #(let #arw_components = std::sync::Arc::new(std::sync::RwLock::new(Vec::with_capacity(capacity))));* ;
                     let static_types = std::sync::Arc::new(std::sync::RwLock::new(Vec::with_capacity(capacity/10)));
                     let (tunnels_in, tunnels_out) = #gen_vec_tunnels_in::new();
-                    let available_entities = std::sync::Arc::new(std::sync::RwLock::new(std::collections::VecDeque::with_capacity(capacity)));
+                    let entity_id_allocator = EntityIDAllocator::new(0);
                     let (stops_in, stops_out) = EVecStopsIn::new();
                     let to_sync = std::sync::Arc::new(std::sync::RwLock::new(Vec::with_capacity(2048)));
                     Self {
@@ -246,7 +248,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                         static_types:static_types.clone(),
                         tunnels_in,
                         tunnels_out,
-                        available_entities:available_entities.clone(),
+                        entity_id_allocator:entity_id_allocator.clone(),
                         stops:stops_in,
                         to_sync,
                         all_events:std::sync::Arc::new(std::sync::RwLock::new(Vec::with_capacity(2048))),
@@ -361,12 +363,14 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                 #[derive(Clone)]
                 pub struct #gen_new_ent_type {
                     #(#used_new_components:#used_new_types),* ,
+                    chosen_id:Option<ChosenID>
                 }
 
                 impl #gen_new_ent_type {
-                    pub fn new(#(#used_new_components:#used_new_types),*) -> Self {
+                    pub fn new(#(#used_new_components:#used_new_types),*, chosen_id:Option<ChosenID>) -> Self {
                         Self {
                             #(#used_new_components),* ,
+                            chosen_id
                         }
                     }
                     pub fn get_static_type_id(&self) -> usize {
@@ -380,7 +384,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                     pub static_types:std::sync::Arc<std::sync::RwLock<Vec<#static_type_ident<ID>>>>,
                     pub tunnels_in:#gen_vec_tunnels_in<ID>,
                     pub tunnels_out:#gen_vec_tunnels_out<ID>,
-                    pub available_entities:std::sync::Arc<std::sync::RwLock<std::collections::VecDeque<EntityID>>>,
+                    pub entity_id_allocator:EntityIDAllocator,
                     pub stops:EVecStopsIn
                 }
             },
@@ -389,14 +393,14 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                     #(let #arw_components = std::sync::Arc::new(std::sync::RwLock::new(Vec::with_capacity(capacity))));* ;
                     let static_types = std::sync::Arc::new(std::sync::RwLock::new(Vec::with_capacity(capacity/10)));
                     let (tunnels_in, tunnels_out) = #gen_vec_tunnels_in::new();
-                    let available_entities = std::sync::Arc::new(std::sync::RwLock::new(std::collections::VecDeque::with_capacity(capacity)));
+                    let entity_id_allocator = EntityIDAllocator::new(0);
                     let (stops_in, stops_out) = EVecStopsIn::new();
                     Self {
                         #(#arw_components:#arw_components.clone()),* ,
                         static_types:static_types.clone(),
                         tunnels_in,
                         tunnels_out,
-                        available_entities:available_entities.clone(),
+                        entity_id_allocator:entity_id_allocator.clone(),
                         stops:stops_in
                     }
                 }
@@ -495,7 +499,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                 #gen_vec_write_type {
                     #(#arw_components:self.#arw_components.write().unwrap()),* ,
                     static_types:self.static_types.write().unwrap(),
-                    available_entities:self.available_entities.write().unwrap(),
+                    entity_id_allocator:self.entity_id_allocator.clone(),
                 }
             }
 
@@ -515,12 +519,14 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                 #gen_vec_read_type {
                     #(#arw_components:self.#arw_components.read().unwrap()),* ,
                     static_types:self.static_types.read().unwrap(),
-                    tunnels:self.tunnels_out.clone()
+                    tunnels:self.tunnels_out.clone(),
+                    entity_id_allocator:self.entity_id_allocator.clone()
                 }
             }
         }
         pub struct #gen_vec_read_type <'a, ID:Identify> {
             #(pub #arw_components:std::sync::RwLockReadGuard<'a, Vec<#arw_types>>),* ,
+            pub entity_id_allocator:EntityIDAllocator,
             pub static_types:std::sync::RwLockReadGuard<'a, Vec<#static_type_ident<ID>>>,
             pub tunnels:#gen_vec_tunnels_out<ID>,
         }
@@ -534,29 +540,49 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
             pub fn get_expected_len(&'a self) -> usize {
                 self.#first_component.len()
             }
+            pub fn kill_ent(&'a self, id:usize) {
+                self.entity_id_allocator.kill_entity(id);
+            }
+            pub fn get_next_ent_id(&'a self) -> ChosenID {
+                self.entity_id_allocator.get_next_id()
+            }
         }
 
         pub struct #gen_vec_write_type <'a, ID:Identify> {
             #(pub #arw_components:std::sync::RwLockWriteGuard<'a, Vec<#arw_types>>),* ,
-            pub available_entities:std::sync::RwLockWriteGuard<'a, std::collections::VecDeque<usize>>,
+            pub entity_id_allocator:EntityIDAllocator,
             pub static_types:std::sync::RwLockWriteGuard<'a, Vec<#static_type_ident<ID>>>
         }
 
         impl<'a, ID:Identify> #gen_vec_write_type <'a, ID> {
             pub fn new_ent(&mut self, new_ent:#gen_new_ent_type #new_ent_type_generics) -> usize {
                 let static_type = new_ent.get_static_type_id();
+                let chosen_id = new_ent.chosen_id;
                 let ent = <#gen_new_ent_type #new_ent_type_generics as NewEntity<#ent_ident #ty_generics, ID>>::get_ent(new_ent, &self.static_types[static_type]);
-                match self.available_entities.pop_back() {
-                    Some(id) => {
-                        #(self.#arw_components[id] = ent.#arw_components);*;
-                        id
+                let final_id = match chosen_id {
+                    Some(chosen) => {
+                        chosen.get_id()
                     }
                     None => {
-                        let id = self.#first_component.len();
-                        #(self.#arw_components.push(ent.#arw_components));*;
+                        let id = self.entity_id_allocator.get_next_id().get_id();
                         id
                     }
+                };
+                if final_id < self.#first_component.len() {
+                    #(self.#arw_components[final_id] = ent.#arw_components);*;
                 }
+                else if final_id == self.#first_component.len() {
+                    #(self.#arw_components.push(ent.#arw_components));*;
+                }
+                else {
+                    let first_len = self.#first_component.len();
+                    for i in first_len..=final_id {
+                        #(self.#arw_components.push(ent.#arw_components.clone()));*;
+                    }
+
+                }
+
+                final_id
             }
             pub fn new_sct(&mut self, sct:#static_type_ident<ID>) {
                 self.static_types.push(sct);
@@ -567,7 +593,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
             #(pub #arw_components:std::sync::Arc<std::sync::RwLock<Vec<#arw_types>>>),* ,
             pub static_types:std::sync::Arc<std::sync::RwLock<Vec<#static_type_ident<ID>>>>,
             pub tunnels_out:#gen_vec_tunnels_out<ID>,
-            pub available_entities:std::sync::Arc<std::sync::RwLock<std::collections::VecDeque<EntityID>>>,
+            pub entity_id_allocator:EntityIDAllocator,
             pub stops:EVecStopsOut
         }
 
@@ -579,6 +605,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                 #gen_vec_read_type {
                     #(#arw_components:self.#arw_components.read().unwrap()),* ,
                     static_types:self.static_types.read().unwrap(),
+                    entity_id_allocator:self.entity_id_allocator.clone(),
                     tunnels:self.tunnels_out.clone()
                 }
             }
