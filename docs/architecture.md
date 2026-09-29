@@ -41,6 +41,113 @@ Sequence 2 :
 
 As you can see, it's possible to both dictate when a task will be dispatched in a tick, but also when it must be done (much like `.await` in async programming), this allows for interleaving compatible tasks as seen in Sequence 2. This does not guarantee them actually executing in parallel, but it allows for it should the OS-level scheduler decide to schedule threads with both tasks simultaneously.
 
+"parallel" tasks are also not guaranteed to be dispatched to as many threads as configured at once, the Hord3 scheduler works with a given thread budget, and may only schedule 3 of 8 threads to perform a parallel task until more threads are available.
+
 There is no compile-time or run-time checking of the validity of any given tick, however the scheduler will panic if a task is waited for before it is started, or if a task signals it has ended before it started (somehow). You are responsible for correctly configuring the execution of a tick.
 
 ### How to define tasks
+
+you can manually define tasks and their corresponding scheduler by implementing the "HordeTask" trait for your task struct or enum, and "HordeTaskHandler" for the struct contained within the scheduler that stores any shared data between tasks and is used to spawn scheduler threads with that shared data for task execution.
+
+It is however heavily recommended to use the built-in procedural macros instead, here's an example from the test of those macros : 
+
+
+```rust
+#[derive(Clone, PartialEq, Hash, Eq, Debug, HordeTask)]
+pub enum TestSinglePlayerTask {
+    #[uses_type = "SinglePEngineBase"]
+    #[max_threads = 1]
+    #[type_task_id = 0]
+    ApplyEvents,
+
+    #[uses_type = "SinglePEngineBase"]
+    #[max_threads = 3]
+    #[type_task_id = 100]
+    Main,
+
+    #[uses_type = "SinglePEngineBase"]
+    #[max_threads = 3]
+    #[type_task_id = 101]
+    AfterMain,
+
+    #[uses_type = "SinglePEngineBase"]
+    #[max_threads = 1]
+    #[type_task_id = 3]
+    PrepareRendering,
+
+    #[uses_type = "WindowingHandler"]
+    #[max_threads = 1]
+    #[type_task_id = 0]
+    SendFramebuf,
+
+    #[uses_type = "WindowingHandler"]
+    #[max_threads = 1]
+    #[type_task_id = 1]
+    WaitForPresent,
+
+    #[uses_type = "WindowingHandler"]
+    #[max_threads = 1]
+    #[type_task_id = 2]
+    DoEventsAndMouse,
+
+    #[uses_type = "Vectorinator"]
+    #[max_threads = 16]
+    #[type_task_id = 0]
+    RenderEverything,
+
+    #[uses_type = "Vectorinator"]
+    #[max_threads = 1]
+    #[type_task_id = 1]
+    TickAllSets,
+
+    #[uses_type = "Vectorinator"]
+    #[max_threads = 1]
+    #[type_task_id = 2]
+    ResetCounters,
+
+    #[uses_type = "Vectorinator"]
+    #[max_threads = 1]
+    #[type_task_id = 3]
+    ClearFramebuf,
+
+    #[uses_type = "Vectorinator"]
+    #[max_threads = 1]
+    #[type_task_id = 4]
+    ClearZbuf,
+
+    #[uses_type = "SimpleUI"]
+    #[uses_generic = "TestUserEvent"]
+    #[max_threads = 1]
+    #[type_task_id = 0]
+    DoAllUIRead,
+
+    #[uses_type = "SimpleUI"]
+    #[uses_generic = "TestUserEvent"]
+    #[max_threads = 1]
+    #[type_task_id = 1]
+    DoAllUIWrite,
+
+    #[uses_type = "ARWWaves"]
+    #[uses_generic = "SinglePEngine"]
+    #[max_threads = 1]
+    #[type_task_id = 0]
+    UpdateSoundPositions,
+
+    #[uses_type = "ARWWaves"]
+    #[uses_generic = "SinglePEngine"]
+    #[max_threads = 1]
+    #[type_task_id = 1]
+    UpdateSoundEverythingElse,
+    
+}
+```
+
+First, this macro only implements HordeTask (and creates the corresponding task handler) for enums.
+
+There are multiple important macro attributes per task here :
+- `uses_type` : this is the type containing the data that this task will operate on/with, this time MUST implement the "IndividualTask" trait
+- `uses_generic` : this specifies a generic type used to parametrize the previously stated type, multiple can be used if necessary
+- `max_threads` : this specifies the maximum amount of threads that this task can be dispatched to at the same time, a single-threaded task will not be executed on a single thread if this isn't set to 1.
+- `type_task_id` : this specifies the specific workload that this task performs using the set type. The set type implements "IndividualTask", which will be passed a "task_id" when told to do a task, that task id is type_task_id here.
+
+As an example, if the scheduler has to schedule TestSinglePlayerTask::ResetCounters, then it will send that task to one working thread, which will call `<Vectorinator as IndividualTask>::do_task` on its shared instance of the Vectorinator struct, with the task_id set to 2. Assuming this corresponds to the intended task in Vectorinator's implementation, it will perform that task and send a signal back to the scheduler saying so.
