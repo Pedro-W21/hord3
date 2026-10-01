@@ -796,7 +796,7 @@ pub enum UIUserAction {
     Nothing,
 }
 
-pub trait UserEvent: Hash + Clone + PartialEq {
+pub trait UserEvent: Hash + Clone + PartialEq + Send + Sync {
 
 }
 #[derive(Clone)]

@@ -32,8 +32,8 @@ pub trait EntityVec<ID:Identify>:Send + Sync + Sized + Clone {
 
 pub trait Component<ID:Identify>:Send + Sync + Sized + Clone {
     type SC:StaticComponent;
-    fn from_static(static_comp:&Self::SC) -> Self;
     type CE:ComponentEvent<Self, ID>;
+    fn from_static(static_comp:&Self::SC) -> Self;
 }
 
 pub trait NewEntity<E:Entity<ID>, ID:Identify>:Sized + Sync + Send {

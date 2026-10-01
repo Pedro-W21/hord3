@@ -288,7 +288,7 @@ fn background_task_thread<HBT:HordeBackgroundTask>(recv_bg:Receiver<SchedulerBac
 /// at runtime, the task sequences will make the right task correspond to the right type and task ID, and use IndividualTask::do_task to execute that task ID on that type.
 /// 
 /// The number of threads and "thread number" are also passed to do_task in order to be able to divide work between all threads that are given a specific task, thread numbers are in the 0..number_of_threads range, and are specific to each task
-pub trait IndividualTask {
+pub trait IndividualTask: Send + Sync {
     type TD;
     type TID;
     fn do_task(&mut self, task_id:Self::TID, thread_number:usize, number_of_threads:usize);

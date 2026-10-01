@@ -150,4 +150,14 @@ There are multiple important macro attributes per task here :
 - `max_threads` : this specifies the maximum amount of threads that this task can be dispatched to at the same time, a single-threaded task will not be executed on a single thread if this isn't set to 1.
 - `type_task_id` : this specifies the specific workload that this task performs using the set type. The set type implements "IndividualTask", which will be passed a "task_id" when told to do a task, that task id is type_task_id here.
 
-As an example, if the scheduler has to schedule TestSinglePlayerTask::ResetCounters, then it will send that task to one working thread, which will call `<Vectorinator as IndividualTask>::do_task` on its shared instance of the Vectorinator struct, with the task_id set to 2. Assuming this corresponds to the intended task in Vectorinator's implementation, it will perform that task and send a signal back to the scheduler saying so.
+As an example, if the scheduler has to schedule TestSinglePlayerTask::ResetCounters, then it will send that task to one working thread, which will call `<Vectorinator as IndividualTask>::do_task` on its shared instance of the Vectorinator struct, with the task_id set to 2. Assuming this corresponds to the intended task in Vectorinator's implementation, it will perform that task and send a signal back to the scheduler when it is done with that task.
+
+### Background tasks
+
+Background tasks are a different kind of task : they are on a seperate thread pool than tick tasks and their execution is not guaranteed to finish in the tick they are started in.
+
+Background tasks are defined by implementing the `HordeBackgroundTask` trait on a type, which only requires implementing the `perform(self)` associated function on that type, if you do not need a background task type for your usecase, you can use the `EmptyBackgroundTask` struct to parametrize the scheduler without more boilerplate.
+
+Background tasks are dispatched by getting the background task sending tunnel from the scheduler using the `HordeScheduler::get_background_send` method and sending tasks into that tunnel. Currently, each task sent will be executed by one working thread eventually.
+
+This kind of task is useful for any operation that may need more than the assumedly short time of a tick to be performed while not freezing the rest of the engine. For example : saving/loading large amounts of data while in game, generating assets dynamically (e.g. generating chunks in a voxel-based game). Due to the fairly lax requirements on traits to implement bakcground tasks, it's possible to also get data back from them with some creativity, for example by bundling a return message passing channel into the task definition itself.
