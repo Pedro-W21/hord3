@@ -145,3 +145,11 @@ using this derive macros, the engine will have the following task IDs :
     - 21 : send all events that must be synced for the client [single-threaded]
 - [ 100 : 100 + number of stages [ : stage functions [parallel]
     - this is why stage functions start at 0, I didn't want to start the task IDs at 101
+
+### Inventory of relevant types created by the engine implementation
+
+- `{engine name}Base`
+    - This is the type that will need to be instanciated to initialize the corresponding game engine (using the associated `::new(entity vecs, world, extra data)` function)
+    - this is also what implements `IndividualTask` for use in the scheduler
+
+- 
