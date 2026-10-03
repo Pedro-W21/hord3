@@ -53,6 +53,20 @@ impl RenderingBackend for TestRB {
     type RenderingStatusUpdate = usize;
 }
 
+pub fn stage_0<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, SinglePEngineTID>, world_read: &WorldComputeHandler<'a, SinglePWorld, SinglePEngineTID>, waves:&SingleExtraData) {
+    if id == 0 {
+        let tick = waves.tick.fetch_add(1, Ordering::Relaxed);
+        println!("{}", tick);
+        if tick == 0 {
+            waves.waves_handler.request_sound(WaveRequest::Load(PathBuf::from("sounds/vine-boom.mp3")));
+        }
+        if tick >= 1 && tick % 300 == 0 {
+            //waves.waves_handler.request_sound(WaveRequest::Sound(SoundRequest::new(WaveIdentification::ByName("vine-boom.mp3".to_string()), WavePosition::InsideYourHead, WaveSink::FirstEmpty)));
+        }
+    }
+    println!("TEST COMPUTE");
+}
+
 pub fn stage_1<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, SinglePEngineTID>, world_read: &WorldComputeHandler<'a, SinglePWorld, SinglePEngineTID>, waves:&SingleExtraData) {
     println!("TEST AFTER MAIN");
     match turn {
@@ -71,20 +85,6 @@ pub fn stage_2<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, 
         },
     }
     
-}
-
-pub fn stage_0<'a>(turn:EntityTurn, id:EntityID, reader: &CoolEntityVecRead<'a, SinglePEngineTID>, world_read: &WorldComputeHandler<'a, SinglePWorld, SinglePEngineTID>, waves:&SingleExtraData) {
-    if id == 0 {
-        let tick = waves.tick.fetch_add(1, Ordering::Relaxed);
-        println!("{}", tick);
-        if tick == 0 {
-            waves.waves_handler.request_sound(WaveRequest::Load(PathBuf::from("sounds/vine-boom.mp3")));
-        }
-        if tick >= 1 && tick % 300 == 0 {
-            //waves.waves_handler.request_sound(WaveRequest::Sound(SoundRequest::new(WaveIdentification::ByName("vine-boom.mp3".to_string()), WavePosition::InsideYourHead, WaveSink::FirstEmpty)));
-        }
-    }
-    println!("TEST COMPUTE");
 }
 
 #[derive(GameEngine, Clone)]
