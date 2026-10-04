@@ -715,7 +715,7 @@ fn create_engine(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed, user_d
 
     let gen = quote! {
 
-        #[derive(Eq, PartialEq, Hash, to_from_bytes_derive::ToBytes, to_from_bytes_derive::FromBytes, Clone)]
+        #[derive(Eq, PartialEq, Hash, to_from_bytes_derive::ToBytes, to_from_bytes_derive::FromBytes, Clone, Debug)]
         pub enum #total_id_ident {
             #(#ent_idents(usize)),*, // <#ent_types as MultiplayerEntity<#total_id_ident>>::ID
             #world_id
