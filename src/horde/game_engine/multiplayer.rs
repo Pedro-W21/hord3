@@ -544,14 +544,23 @@ impl<ME:MultiplayerEngine + 'static> HordeMultiplayer<ME> {
     /// Call first as client
     pub fn receive_all_events_and_respond(&mut self, engine:&mut ME) {
         match &mut self.mode {
-            HordeMultiplayerMode::Client(client) => client.tcp.as_mut().unwrap().write().unwrap().receive_all_events_and_respond(&client.events_to_spread, &mut self.players, engine, &client.chat, client.id.unwrap(), client.client_ent_ids.read().unwrap().clone()),
+            HordeMultiplayerMode::Client(client) => match client.tcp.as_mut() {
+                Some(tcp) => tcp.write().unwrap().receive_all_events_and_respond(&client.events_to_spread, &mut self.players, engine, &client.chat, client.id.unwrap(), client.client_ent_ids.read().unwrap().clone()),
+                None => ()
+            },
             HordeMultiplayerMode::Server(_) => panic!("Not a client"),
         }
     }
     /// Call second as client
     pub fn send_all_events(&mut self) {
         match &mut self.mode {
-            HordeMultiplayerMode::Client(client) => client.tcp.as_mut().unwrap().write().unwrap().send_all_events(&client.events_to_spread, &client.chat, client.id.unwrap(), ),
+            HordeMultiplayerMode::Client(client) => match client.tcp.as_mut() {
+                Some(tcp) => tcp.write().unwrap().send_all_events(&client.events_to_spread, &client.chat, client.id.unwrap(), ),
+                None => while let Ok(evt) = client.events_to_spread.try_recv() {
+                    // consuming all events that should spread in true multiplayer operation so the client's serverless simulation can go on if not connected to server
+                    ()
+                }
+            },
             HordeMultiplayerMode::Server(_) => panic!("Not a client"),
         }
     } 
