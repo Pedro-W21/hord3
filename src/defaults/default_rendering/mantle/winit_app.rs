@@ -486,6 +486,7 @@ impl ApplicationHandler for App {
                     while let Ok(event) = self.events.try_recv() {
                         meshes.apply_event(event,&mut textures, &mut builder);
                     }
+                    meshes.push_instance_changes(&mut builder);
                     (meshes.get_new_camdata(aspect_ratio), textures.get_image())
                 };
 

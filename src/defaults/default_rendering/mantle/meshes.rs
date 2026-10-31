@@ -1,7 +1,7 @@
 use std::{f32::consts::PI, sync::{Arc, atomic::{AtomicU64, AtomicUsize}, mpmc::{Receiver, Sender, channel}}};
 
 use to_from_bytes_derive::{FromBytes, ToBytes};
-use vulkano::{buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, format, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter}, pipeline::graphics::vertex_input::Vertex};
+use vulkano::{buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, command_buffer::CopyBufferInfo, format, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter}, pipeline::graphics::vertex_input::Vertex};
 
 use crate::{defaults::default_rendering::mantle::{api::{CPUInstanceData, MantleEvent, MantleRequest, MantleResponse}, textures::TextureAtlas}, horde::{geometry::{mat4::Mat4, rotation::Rotation, vec3d::Vec3Df}, rendering::camera::Camera}};
 
@@ -25,13 +25,13 @@ impl Meshes {
                 let allocator = self.allocator.clone();
                 self.get_mesh_mut(mesh_id).and_then(|mesh| {
                     let reallocate = {
-                        let mut instances = mesh.instances.instance_buffer.write().unwrap();
-                        if instances.len() < chosen_id {
-                            let data = instances.to_vec();
+                        if mesh.instances.local_instance_buffer.len() < chosen_id {
+                            let data = mesh.instances.local_instance_buffer.clone();
                             Some(data)
                         }
                         else {
-                            instances.get_mut(chosen_id).and_then(|data| {*data = InstanceData { world_position: new_data.position.coords_to_array(), scale: 1.0}; Some(1_u8)});
+                            mesh.instances.local_instance_buffer.get_mut(chosen_id).and_then(|data| {*data = InstanceData { world_position: new_data.position.coords_to_array(), scale: 1.0}; Some(1_u8)});
+                            mesh.instances.changed_in_frame = true;
                             None
                         }    
                     };
@@ -41,6 +41,8 @@ impl Meshes {
                                 data.push(InstanceData { world_position: new_data.position.coords_to_array(), scale: 0.0});
                             }
                             data.last_mut().unwrap().scale = 1.0;
+
+                            mesh.instances.local_instance_buffer = data;
 
                             let instance_buffer = Buffer::from_iter(
                                 allocator,
@@ -53,7 +55,7 @@ impl Meshes {
                                         | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
                                     ..Default::default()
                                 },
-                                data,
+                                mesh.instances.local_instance_buffer.iter().cloned(),
                             )
                             .unwrap();
                             mesh.instances.instance_buffer = instance_buffer;
@@ -68,8 +70,8 @@ impl Meshes {
             },
             MantleRequest::UpdateInstance { mesh_id, instance, new_data } => {
                 self.get_mesh_mut(mesh_id).and_then(|mesh| {
-                    let mut instances = mesh.instances.instance_buffer.write().unwrap();
-                    instances.get_mut(instance).and_then(|data| {*data = InstanceData { world_position: [new_data.position.x, new_data.position.z, -new_data.position.y], scale: 1.0}; Some(1_u8)});
+                    mesh.instances.changed_in_frame = true;
+                    mesh.instances.local_instance_buffer.get_mut(instance).and_then(|data| {*data = InstanceData { world_position: [new_data.position.x, new_data.position.z, -new_data.position.y], scale: 1.0}; Some(1_u8)});
                     Some(1_u8)
                 });
                 event.response.send(MantleResponse::Success);
@@ -169,6 +171,29 @@ impl Meshes {
             }
         }
     }
+    pub fn push_instance_changes(&mut self, builder:&mut vulkano::command_buffer::AutoCommandBufferBuilder<vulkano::command_buffer::PrimaryAutoCommandBuffer>) {
+
+        for mesh in &mut self.meshes {
+            if mesh.instances.changed_in_frame {
+                let instance_buffer = Buffer::from_iter(
+                    self.allocator.clone(),
+                    BufferCreateInfo {
+                        usage: BufferUsage::VERTEX_BUFFER,
+                        ..Default::default()
+                    },
+                    AllocationCreateInfo {
+                        memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                            | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                        ..Default::default()
+                    },
+                    mesh.instances.local_instance_buffer.iter().cloned(),
+                )
+                .unwrap();
+                mesh.instances.instance_buffer = instance_buffer;
+                mesh.instances.changed_in_frame = false;
+            }
+        }
+    }
     pub fn get_mesh_mut(&mut self, id:MeshID) -> Option<&mut Mesh> {
         match id {
             MeshID::DirectID(index) => self.meshes.get_mut(index),
@@ -193,6 +218,8 @@ pub struct Mesh {
 
 pub struct Instances {
     pub instance_buffer: Subbuffer<[InstanceData]>,
+    pub local_instance_buffer: Vec<InstanceData>,
+    pub changed_in_frame:bool,
     pub id_generator:InstanceIDGenerator
     
 }
@@ -218,11 +245,13 @@ impl Instances {
                     | MemoryTypeFilter::HOST_RANDOM_ACCESS,
                 ..Default::default()
             },
-            data,
+            data.clone(),
         )
         .unwrap();
         Self {
             instance_buffer,
+            local_instance_buffer:data,
+            changed_in_frame:false,
             id_generator:InstanceIDGenerator {
                 highest_id:Arc::new(AtomicUsize::new(highest_id)),
                 dead_queue:channel(),
