@@ -481,12 +481,16 @@ impl ApplicationHandler for App {
 
                 let aspect_ratio = (window_size.width as f32)/(window_size.height as f32);
                 let (camera, atlas) = {
+                    let events_start = Instant::now();
                     let mut meshes = self.meshes.write().unwrap();
                     let mut textures = self.textures.write().unwrap();
                     while let Ok(event) = self.events.try_recv() {
                         meshes.apply_event(event,&mut textures, &mut builder);
                     }
+                    let events_end = Instant::now();
                     meshes.push_instance_changes(&mut builder);
+                    let push_end = Instant::now();
+                    println!("[Mantle] : time for events {} ; time to push instance changes : {}", events_end.duration_since(events_start).as_secs_f32(), push_end.duration_since(events_end).as_secs_f32());
                     (meshes.get_new_camdata(aspect_ratio), textures.get_image())
                 };
 
