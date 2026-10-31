@@ -184,6 +184,16 @@ impl MantleHandler {
         }).unwrap();
         (id, r)
     }
+    pub fn free_instance(&self, mesh_id:MeshID, instance:usize) -> Receiver<MantleResponse> {
+        let (s,r) = channel();
+        let mesh_data = self.get_mesh(mesh_id.clone()).unwrap();
+        mesh_data.instance_id_generator.free_id(instance);
+        self.event_sender.send(MantleEvent {
+            update: MantleRequest::RemoveInstance { mesh_id, removed_id: instance },
+            response: s
+        }).unwrap();
+        r
+    }
     pub fn update_instance(&self, mesh_id:MeshID, instance:usize, new_data:CPUInstanceData) -> Receiver<MantleResponse> {
 
         let (s,r) = channel();
