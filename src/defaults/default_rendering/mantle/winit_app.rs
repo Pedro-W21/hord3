@@ -3,7 +3,7 @@
 // This is a simple, modified version of the `triangle.rs` example that demonstrates how we can use
 // the "instancing" technique with vulkano to draw many instances of the triangle.
 
-use std::{error::Error, sync::{Arc, RwLock, atomic::{AtomicUsize, Ordering}, mpmc::{Receiver, Sender, channel}}};
+use std::{error::Error, sync::{Arc, RwLock, atomic::{AtomicUsize, Ordering}, mpmc::{Receiver, Sender, channel}}, time::Instant};
 use foldhash::HashSet;
 use smallvec::smallvec;
 use vulkano::{
@@ -426,7 +426,7 @@ impl ApplicationHandler for App {
                 rcx.recreate_swapchain = true;
             }
             WindowEvent::RedrawRequested => {
-                
+                let start = Instant::now();
                 let window_size = rcx.window.inner_size();
 
                 if window_size.width == 0 || window_size.height == 0 {
@@ -632,6 +632,8 @@ impl ApplicationHandler for App {
                         rcx.previous_frame_end = Some(sync::now(self.device.clone()).boxed());
                     }
                 }
+                let end = Instant::now();
+                println!("Mantle rendering FPS : {}", 1.0/end.duration_since(start).as_secs_f64())
             }
             _ => {}
         }
