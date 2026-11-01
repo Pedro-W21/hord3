@@ -329,6 +329,12 @@ impl<N:Number> Div<N> for &Vec3D<N> {
     }
 }
 
+pub const FLOOR_OPS_LUT:[f32 ; 2] = [0.0, 1.0];
+
+pub const fn get_sign_idx(val:f32) -> usize {
+    (val.to_bits() >> 31) as usize
+}
+
 pub type Vec3Df = Vec3D<f32>;
 
 impl Vec3Df {
@@ -451,7 +457,7 @@ impl Vec3Df {
     }
     pub fn mul_floor(&self, rhs:f32) -> Self {
         let mulled = self * rhs;
-        Self { x: if mulled.x.is_sign_negative() {(mulled.x - 1.0).trunc()} else {mulled.x.trunc()}, y: if mulled.y.is_sign_negative() {(mulled.y - 1.0).trunc()} else {mulled.y.trunc()}, z: if mulled.z.is_sign_negative() {(mulled.z - 1.0).trunc()} else {mulled.z.trunc()} }
+        Self { x: (mulled.x - FLOOR_OPS_LUT[get_sign_idx(mulled.x)]).trunc(), y: (mulled.y - FLOOR_OPS_LUT[get_sign_idx(mulled.y)]).trunc(), z: (mulled.z - FLOOR_OPS_LUT[get_sign_idx(mulled.z)]).trunc() }
     }
     pub fn norme(&self) -> f32 {
         (self.x.powi(2) + self.y.powi(2) + self.z.powi(2)).sqrt()
