@@ -37,7 +37,7 @@ impl Meshes {
                     };
                     match reallocate {
                         Some(mut data) => {
-                            println!("[Mantle] : REALLOCATING INSTANCES FOR MESH {:?}", mesh_id.clone());
+                            // println!("[Mantle] : REALLOCATING INSTANCES FOR MESH {:?}", mesh_id.clone());
                             for i in (data.len().max(1) - 1)..chosen_id {
                                 data.push(InstanceData { world_position: new_data.position.coords_to_array(), scale: 0.0});
                             }
@@ -79,7 +79,7 @@ impl Meshes {
             },
             MantleRequest::RemoveInstance { mesh_id, removed_id } => (),
             MantleRequest::CreateOrUpdateMesh { name, lods, first_instances } => {
-                println!("[Mantle] : CREATING OR UPDATING MESH {}", name.clone());
+                // println!("[Mantle] : CREATING OR UPDATING MESH {}", name.clone());
                 let show = lods[0].index_data.len() > 0;
                 let meshlods:Vec<MeshLOD> = lods.into_iter().map(|apilod| {
                     if apilod.vertex_data.len() > 0 {
