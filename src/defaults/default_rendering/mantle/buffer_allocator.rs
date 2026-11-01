@@ -38,7 +38,8 @@ impl<T:BufferContents + Copy> BufferAllocator<T> {
             if demand.max_length <= av.length {
                 let start = av.start;
                 slot = i;
-                alloc = Some(Allocation { start, length: demand.start_length, max_length: demand.max_length })
+                alloc = Some(Allocation { start, length: demand.start_length, max_length: demand.max_length });
+                break;
             }
         }
         match alloc {
