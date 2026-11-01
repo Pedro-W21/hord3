@@ -10,7 +10,7 @@ use vulkano::{
     Validated, VulkanError, VulkanLibrary, buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, command_buffer::{
         AutoCommandBufferBuilder, CommandBufferUsage, DrawIndexedIndirectCommand, RenderPassBeginInfo, allocator::StandardCommandBufferAllocator,
     }, descriptor_set::{CopyDescriptorSet, DescriptorSet, WriteDescriptorSet, allocator::StandardDescriptorSetAllocator}, device::{
-        Device, DeviceCreateInfo, DeviceExtensions, DeviceOwned, Queue, QueueCreateInfo, QueueFlags, physical::PhysicalDeviceType,
+        Device, DeviceCreateInfo, DeviceExtensions, DeviceFeatures, DeviceOwned, Queue, QueueCreateInfo, QueueFlags, physical::PhysicalDeviceType,
     }, format::Format, image::{Image, ImageCreateInfo, ImageType, ImageUsage, sampler::{Filter, Sampler, SamplerAddressMode, SamplerCreateInfo}, view::ImageView}, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator}, pipeline::{
         DynamicState, GraphicsPipeline, Pipeline, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{
             GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, depth_stencil::{DepthState, DepthStencilState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState},
@@ -105,10 +105,14 @@ impl App {
             physical_device.properties().device_type,
         );
 
+        let mut features = DeviceFeatures::default();
+        features.multi_draw_indirect = true;
+
         let (device, mut queues) = Device::new(
             physical_device,
             DeviceCreateInfo {
                 enabled_extensions: device_extensions,
+                enabled_features: features,
                 queue_create_infos: vec![QueueCreateInfo {
                     queue_family_index,
                     ..Default::default()
