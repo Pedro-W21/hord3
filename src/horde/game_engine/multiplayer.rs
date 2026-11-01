@@ -576,7 +576,7 @@ impl<ME:MultiplayerEngine + 'static> HordeMultiplayer<ME> {
     pub fn new(mode:HordeMultiModeChoice, events_to_spread:Receiver<ME::GE>) -> Self {
         match mode {
             HordeMultiModeChoice::Client { adress, name, chat } => {
-                let final_mode = HordeMultiplayerMode::Client(HordeClientData::new(name, Some((adress.unwrap().0, adress.unwrap().1)), events_to_spread, chat));
+                let final_mode = HordeMultiplayerMode::Client(HordeClientData::new(name, adress.clone(), events_to_spread, chat));
                 Self { mode:final_mode, players:HordePlayers::new(3) }
             },
             HordeMultiModeChoice::Server { adress, max_players, tick_tolerance, tickrate } => {
