@@ -3,12 +3,15 @@ use std::{collections::HashMap, f32::consts::PI, sync::{Arc, atomic::{AtomicU64,
 use to_from_bytes_derive::{FromBytes, ToBytes};
 use vulkano::{buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, command_buffer::CopyBufferInfo, format, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter}, pipeline::graphics::vertex_input::Vertex};
 
-use crate::{defaults::default_rendering::mantle::{api::{CPUInstanceData, MantleEvent, MantleRequest, MantleResponse}, textures::TextureAtlas}, horde::{geometry::{mat4::Mat4, rotation::Rotation, vec3d::Vec3Df}, rendering::camera::Camera}};
+use crate::{defaults::default_rendering::mantle::{api::{self, CPUInstanceData, MantleEvent, MantleRequest, MantleResponse}, buffer_allocator::{Allocation, AllocationDemand, BufferAllocator}, textures::TextureAtlas}, horde::{geometry::{mat4::Mat4, rotation::Rotation, vec3d::Vec3Df}, rendering::camera::Camera}};
 
 
 pub type MemoryAllocator = Arc<vulkano::memory::allocator::GenericMemoryAllocator<vulkano::memory::allocator::FreeListAllocator>>;
 pub struct Meshes {
     pub meshes:Vec<Mesh>,
+    pub vertex_alloc:BufferAllocator<TriangleVertex>,
+    pub index_alloc:BufferAllocator<u32>,
+    pub instance_alloc:BufferAllocator<InstanceData>,
     pub mesh_map:HashMap<String, usize>,
     pub mesh_creation_sender:Sender<MantleResponse>,
     pub allocator:MemoryAllocator,
@@ -25,45 +28,20 @@ impl Meshes {
             MantleRequest::CreateInstance { mesh_id, chosen_id, new_data } => {
                 let allocator = self.allocator.clone();
                 self.get_mesh_mut(mesh_id.clone()).and_then(|mesh| {
-                    let reallocate = {
-                        if mesh.instances.local_instance_buffer.len() < chosen_id {
-                            let data = mesh.instances.local_instance_buffer.clone();
-                            Some(data)
+                    if mesh.instances.local_instance_buffer.len() < chosen_id {
+                        let mut data = mesh.instances.local_instance_buffer.clone();
+                        for i in (data.len().max(1) - 1)..chosen_id {
+                            data.push(InstanceData { world_position: new_data.position.coords_to_array(), scale: 0.0});
                         }
-                        else {
-                            mesh.instances.local_instance_buffer.get_mut(chosen_id).and_then(|data| {*data = InstanceData { world_position: new_data.position.coords_to_array(), scale: 1.0}; Some(1_u8)});
-                            mesh.instances.changed_in_frame = true;
-                            None
-                        }    
-                    };
-                    match reallocate {
-                        Some(mut data) => {
-                            // println!("[Mantle] : REALLOCATING INSTANCES FOR MESH {:?}", mesh_id.clone());
-                            for i in (data.len().max(1) - 1)..chosen_id {
-                                data.push(InstanceData { world_position: new_data.position.coords_to_array(), scale: 0.0});
-                            }
-                            data.last_mut().unwrap().scale = 1.0;
+                        data.last_mut().unwrap().scale = 1.0;
 
-                            mesh.instances.local_instance_buffer = data;
-
-                            let instance_buffer = Buffer::from_iter(
-                                allocator,
-                                BufferCreateInfo {
-                                    usage: BufferUsage::VERTEX_BUFFER,
-                                    ..Default::default()
-                                },
-                                AllocationCreateInfo {
-                                    memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                                        | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                                    ..Default::default()
-                                },
-                                mesh.instances.local_instance_buffer.iter().cloned(),
-                            )
-                            .unwrap();
-                            mesh.instances.instance_buffer = instance_buffer;
-                        },
-                        None => ()
+                        mesh.instances.local_instance_buffer = data;
+                        mesh.instances.changed_in_frame = true;
                     }
+                    else {
+                        mesh.instances.local_instance_buffer.get_mut(chosen_id).and_then(|data| {*data = InstanceData { world_position: new_data.position.coords_to_array(), scale: 1.0}; Some(1_u8)});
+                        mesh.instances.changed_in_frame = true;
+                    }    
                     
 
                     Some(1_u8)
@@ -82,80 +60,36 @@ impl Meshes {
             MantleRequest::CreateOrUpdateMesh { name, lods, first_instances } => {
                 // println!("[Mantle] : CREATING OR UPDATING MESH {}", name.clone());
                 let show = lods[0].index_data.len() > 0;
+                if let Some(mesh) = self.get_mesh(MeshID::Name(name.clone())).cloned() {
+                    for lod in &mesh.lods {
+                        self.vertex_alloc.free(lod.vertex_allocation);
+                        self.index_alloc.free(lod.index_allocation);
+                    }
+                }
                 let meshlods:Vec<MeshLOD> = lods.into_iter().map(|apilod| {
-                    if apilod.vertex_data.len() > 0 {
-                        let vertex_buffer = Buffer::from_iter(
-                            self.allocator.clone(),
-                            BufferCreateInfo {
-                                usage: BufferUsage::VERTEX_BUFFER,
-                                ..Default::default()
-                            },
-                            AllocationCreateInfo {
-                                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                                ..Default::default()
-                            },
-                            apilod.vertex_data.iter().map(|vertex| {TriangleVertex {position:[vertex.position.x, vertex.position.z, -vertex.position.y], uv:textures.get_uv_for(apilod.textures[vertex.texture_id as usize].clone(), vertex.u, vertex.v)}}),
-                        )
-                        .unwrap();
+                        let vertex_allocation = self.vertex_alloc.allocate(AllocationDemand::new(apilod.vertex_data.len(), apilod.vertex_data.len() + 100));
+                        self.vertex_alloc.update_allocation(
+                            vertex_allocation,
+                            apilod.vertex_data.iter().map(|vertex| {TriangleVertex {position:[vertex.position.x, vertex.position.z, -vertex.position.y], uv:textures.get_uv_for(apilod.textures[vertex.texture_id as usize].clone(), vertex.u, vertex.v)}}).collect()
+                        );
 
-                        let index_buffer = Buffer::from_iter(
-                            self.allocator.clone(),
-                            BufferCreateInfo {
-                                usage: BufferUsage::INDEX_BUFFER,
-                                ..Default::default()
-                            },
-                            AllocationCreateInfo {
-                                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                                ..Default::default()
-                            },
-                            apilod.index_data.iter().map(|index| {index.vertex}),
-                        )
-                        .unwrap();
-                        MeshLOD { vertex_buffer, indices: index_buffer }
-                    }
-                    else {
-                        let vertex_buffer = Buffer::from_iter(
-                            self.allocator.clone(),
-                            BufferCreateInfo {
-                                usage: BufferUsage::VERTEX_BUFFER,
-                                ..Default::default()
-                            },
-                            AllocationCreateInfo {
-                                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                                ..Default::default()
-                            },
-                            [TriangleVertex {position:[0.0, 0.0, 0.0], uv:[0.0, 0.0]}, TriangleVertex {position:[0.0, 1.0, 0.0], uv:[1.0, 0.0]}, TriangleVertex {position:[1.0, 0.0, 0.0], uv:[0.0, 1.0]}]
-                        )
-                        .unwrap();
-
-                        let index_buffer = Buffer::from_iter(
-                            self.allocator.clone(),
-                            BufferCreateInfo {
-                                usage: BufferUsage::INDEX_BUFFER,
-                                ..Default::default()
-                            },
-                            AllocationCreateInfo {
-                                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                                ..Default::default()
-                            },
-                            [0, 1, 2],
-                        )
-                        .unwrap();
-                        MeshLOD { vertex_buffer, indices: index_buffer }
-                    }
+                        let index_allocation = self.index_alloc.allocate(AllocationDemand::new(apilod.index_data.len(), apilod.index_data.len() + 300));
+                        self.index_alloc.update_allocation(
+                            index_allocation,
+                            apilod.index_data.iter().map(|index| {index.vertex}).collect()
+                        );
+                        MeshLOD { vertex_allocation, index_allocation }
                 }).collect();
                 if let Some(mesh) = self.get_mesh_mut(MeshID::Name(name.clone())) {
+                    
                     mesh.lods = meshlods;
                     mesh.show = show;
                     event.response.send(MantleResponse::Success);
                 }
                 else {
                     let id = self.meshes.len();
-                    let instances = Instances::new(first_instances, self.allocator.clone());
+                    let mut first_instances_len = first_instances.len();
+                    let instances = Instances::new(first_instances, self.allocator.clone(), &mut self.instance_alloc);
                     let id_generator = instances.id_generator.clone();
                     self.meshes.push(Mesh { name:name.clone(), lods:meshlods, instances, chosen_lod: None, show });
                     self.mesh_map.insert(name.clone(), id);
@@ -179,7 +113,17 @@ impl Meshes {
 
         for mesh in &mut self.meshes {
             if mesh.instances.changed_in_frame {
-                let instance_buffer = Buffer::from_iter(
+                if mesh.instances.allocation.get_length() != mesh.instances.local_instance_buffer.len() {
+                    let new_max_length = if mesh.instances.allocation.get_max_length() < mesh.instances.local_instance_buffer.len() {
+                        mesh.instances.local_instance_buffer.len() * 3
+                    }
+                    else {
+                        mesh.instances.allocation.get_max_length()
+                    };
+                    mesh.instances.allocation = self.instance_alloc.extend_allocation(mesh.instances.allocation, AllocationDemand::new(mesh.instances.local_instance_buffer.len(), new_max_length));
+                }
+                self.instance_alloc.update_allocation(mesh.instances.allocation, mesh.instances.local_instance_buffer.clone());
+                /*let instance_buffer = Buffer::from_iter(
                     self.allocator.clone(),
                     BufferCreateInfo {
                         usage: BufferUsage::VERTEX_BUFFER,
@@ -193,7 +137,7 @@ impl Meshes {
                     mesh.instances.local_instance_buffer.iter().cloned(),
                 )
                 .unwrap();
-                mesh.instances.instance_buffer = instance_buffer;
+                mesh.instances.instance_buffer = instance_buffer;*/
                 mesh.instances.changed_in_frame = false;
             }
         }
@@ -204,6 +148,12 @@ impl Meshes {
             MeshID::Name(name) => self.mesh_map.get(&name).and_then(|idx| {Some(self.meshes.get_mut(*idx).unwrap())})
         }
     }
+    pub fn get_mesh(&self, id:MeshID) -> Option<&Mesh> {
+        match id {
+            MeshID::DirectID(index) => self.meshes.get(index),
+            MeshID::Name(name) => self.mesh_map.get(&name).and_then(|idx| {Some(self.meshes.get(*idx).unwrap())})
+        }
+    }
     pub fn get_new_camdata(&self, aspect_ratio:f32) -> CameraData {
         let dir = self.camera.orient.into_vec();
         let view = Mat4::look_to(Vec3Df::new(self.camera.pos.x, self.camera.pos.z, -self.camera.pos.y), Vec3Df::new(dir.x, dir.z, -dir.y), Vec3Df::new(self.camera.orient.roll.sin(), self.camera.orient.roll.cos(), 0.0));
@@ -212,6 +162,7 @@ impl Meshes {
     }
 }
 
+#[derive(Clone)]
 pub struct Mesh {
     pub name:String,
     pub lods:Vec<MeshLOD>,
@@ -220,8 +171,9 @@ pub struct Mesh {
     pub show:bool
 }
 
+#[derive(Clone)]
 pub struct Instances {
-    pub instance_buffer: Subbuffer<[InstanceData]>,
+    pub allocation:Allocation,
     pub local_instance_buffer: Vec<InstanceData>,
     pub changed_in_frame:bool,
     pub id_generator:InstanceIDGenerator
@@ -229,7 +181,7 @@ pub struct Instances {
 }
 
 impl Instances {
-    pub fn new(first_instances:Vec<CPUInstanceData>,allocator:MemoryAllocator) -> Self {
+    pub fn new(first_instances:Vec<CPUInstanceData>,allocator:MemoryAllocator, instance_alloc:&mut BufferAllocator<InstanceData>) -> Self {
         let mut data = Vec::with_capacity(first_instances.len());
         let highest_id = first_instances.len();
         for instance in first_instances {
@@ -238,22 +190,10 @@ impl Instances {
         if data.len() == 0 {
             data.push(InstanceData { world_position: [0.0, 0.0, 0.0], scale: 0.0 });
         }
-        let instance_buffer = Buffer::from_iter(
-            allocator,
-            BufferCreateInfo {
-                usage: BufferUsage::VERTEX_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                    | MemoryTypeFilter::HOST_RANDOM_ACCESS,
-                ..Default::default()
-            },
-            data.clone(),
-        )
-        .unwrap();
+        let allocation = instance_alloc.allocate(AllocationDemand::simple(highest_id));
+        instance_alloc.update_allocation(allocation, data.clone());
         Self {
-            instance_buffer,
+            allocation,
             local_instance_buffer:data,
             changed_in_frame:false,
             id_generator:InstanceIDGenerator {
@@ -285,7 +225,7 @@ impl InstanceIDGenerator {
 pub type MagicBuffer<T> = Vec<T>;
 
 /// The vertex type that we will be used to describe the triangle's geometry.
-#[derive(BufferContents, Vertex)]
+#[derive(BufferContents, Vertex, Clone, Copy)]
 #[repr(C)]
 pub struct TriangleVertex {
     #[format(R32G32B32_SFLOAT)]
@@ -295,7 +235,7 @@ pub struct TriangleVertex {
 }
 
 /// The vertex type that describes the unique data per instance.
-#[derive(BufferContents, Vertex, Clone)]
+#[derive(BufferContents, Vertex, Clone, Copy)]
 #[repr(C)]
 pub struct InstanceData {
     #[format(R32G32B32_SFLOAT)]
@@ -305,14 +245,15 @@ pub struct InstanceData {
 }
 
 pub type TextureID = usize;
-pub struct MeshLOD {
 
-    pub vertex_buffer: Subbuffer<[TriangleVertex]>,
-    pub indices:Subbuffer<[u32]>,
+#[derive(Clone)]
+pub struct MeshLOD {
+    pub vertex_allocation:Allocation,
+    pub index_allocation : Allocation,
 }
 
 /// The vertex type that describes the unique data per instance.
-#[derive(BufferContents, Vertex, Clone)]
+#[derive(BufferContents, Vertex, Clone, Copy)]
 #[repr(C)]
 pub struct IndexData {
     #[format(R32_UINT)]

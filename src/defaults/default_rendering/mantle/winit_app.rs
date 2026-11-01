@@ -23,7 +23,7 @@ use winit::{
     application::ApplicationHandler, event::{KeyEvent, MouseButton, WindowEvent}, event_loop::{ActiveEventLoop, EventLoop}, keyboard::{Key, NamedKey}, window::{Window, WindowId},
 };
 
-use crate::{defaults::default_rendering::mantle::{api::{MantleEvent, MantleHandler, MantleResponse}, meshes::{CameraData, InstanceData, MemoryAllocator, Meshes, TriangleVertex}, textures::TextureAtlas}, horde::{frontend::{MouseState, WindowingEvent, interact::Button}, geometry::{mat4::Mat4, vec3d::Vec3Df}, rendering::camera::Camera}};
+use crate::{defaults::default_rendering::mantle::{api::{MantleEvent, MantleHandler, MantleResponse}, buffer_allocator::BufferAllocator, meshes::{CameraData, InstanceData, MemoryAllocator, Meshes, TriangleVertex}, textures::TextureAtlas}, horde::{frontend::{MouseState, WindowingEvent, interact::Button}, geometry::{mat4::Mat4, vec3d::Vec3Df}, rendering::camera::Camera}};
 
 fn main() -> Result<(), impl Error> {
     let event_loop = EventLoop::new().unwrap();
@@ -138,7 +138,16 @@ impl App {
                 device,
                 queue,
                 command_buffer_allocator,
-                meshes:Arc::new(RwLock::new(Meshes { meshes: vec![], allocator:memory_allocator.clone(), mesh_creation_sender:sender2, camera:Camera::empty(), mesh_map:HashMap::with_capacity(4096) })),
+                meshes:Arc::new(RwLock::new(Meshes {
+                    meshes: vec![],
+                    allocator:memory_allocator.clone(),
+                    mesh_creation_sender:sender2,
+                    camera:Camera::empty(),
+                    mesh_map:HashMap::with_capacity(4096),
+                    vertex_alloc:BufferAllocator::new(10_000_000, memory_allocator.clone(), BufferUsage::VERTEX_BUFFER),
+                    instance_alloc:BufferAllocator::new(10_000_000, memory_allocator.clone(), BufferUsage::VERTEX_BUFFER),
+                    index_alloc:BufferAllocator::new(10_000_000, memory_allocator.clone(), BufferUsage::INDEX_BUFFER)
+                 })),
                 textures:Arc::new(RwLock::new(TextureAtlas::new(4096, 4096, 1, memory_allocator.clone()))),
                 rcx: None,
                 events:receiver,
@@ -585,34 +594,55 @@ impl ApplicationHandler for App {
                         0,
                         (camera_descriptor_set, atlas_descriptor_set)
                     ).unwrap();
-            
-                for mesh in &self.meshes.read().unwrap().meshes {
-                    if mesh.show {
-                        // We pass both our lists of vertices here.
-                        let lod = mesh.lods.last().unwrap();
-                        builder.bind_vertex_buffers(
-                            0,
-                            (lod.vertex_buffer.clone(), mesh.instances.instance_buffer.clone()),
-                        )
-                        .unwrap();
-                        builder.bind_index_buffer(
-                            lod.indices.clone()
-                        )
-                        .unwrap();
-
-                        unsafe {
-                            builder.draw_indexed(
-                                lod.indices.len() as u32,
-                                mesh.instances.instance_buffer.len() as u32,
-                                0,
-                                0,
-                                0
+                
+                {
+                    let meshes_read = self.meshes.read().unwrap();
+                    builder.bind_vertex_buffers(
+                    0,
+                    (meshes_read.vertex_alloc.get_buffer(), meshes_read.instance_alloc.get_buffer()),
+                    )
+                    .unwrap();
+                    builder.bind_index_buffer(
+                        meshes_read.index_alloc.get_buffer()
+                    )
+                    .unwrap();
+                    let iter:Vec<DrawIndexedIndirectCommand> = meshes_read.meshes.iter().filter_map(|mesh| {
+                        if mesh.show {
+                            let lod = mesh.lods.last().unwrap();
+                            Some(
+                                DrawIndexedIndirectCommand {
+                                    index_count:lod.index_allocation.get_length() as u32,
+                                    instance_count:mesh.instances.allocation.get_length() as u32,
+                                    first_index:lod.index_allocation.get_start() as u32,
+                                    vertex_offset:lod.vertex_allocation.get_start() as u32,
+                                    first_instance:mesh.instances.allocation.get_start() as u32
+                                }
                             )
                         }
-                        .unwrap();
+                        else {
+                            None
+                        }
+                    }).collect();
+                    let indirect_buffer = Buffer::from_iter(
+                        meshes_read.allocator.clone(),
+                        BufferCreateInfo {
+                            usage: BufferUsage::INDIRECT_BUFFER,
+                            ..Default::default()
+                        },
+                        AllocationCreateInfo {
+                            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                                | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                            ..Default::default()
+                        },
+                        iter,
+                    ).expect("Couldn't allocate global buffer");
+                    unsafe {
+                        builder.draw_indexed_indirect(
+                            indirect_buffer
+                        ).unwrap();
                     }
-                    
                 }
+                
 
                 builder.end_render_pass(Default::default()).unwrap();
 

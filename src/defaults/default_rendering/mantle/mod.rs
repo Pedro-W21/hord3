@@ -5,6 +5,7 @@ pub mod api;
 pub mod winit_app;
 pub mod textures;
 pub mod shapes_to_tris;
+pub mod buffer_allocator;
 
 mod cs {
     vulkano_shaders::shader!{
