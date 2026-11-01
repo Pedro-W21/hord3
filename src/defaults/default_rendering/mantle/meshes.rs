@@ -67,13 +67,19 @@ impl Meshes {
                     }
                 }
                 let meshlods:Vec<MeshLOD> = lods.into_iter().map(|apilod| {
-                        let vertex_allocation = self.vertex_alloc.allocate(AllocationDemand::new(apilod.vertex_data.len(), apilod.vertex_data.len() + 100));
+                        let added = if apilod.index_data.len() > 0 {
+                            100
+                        }
+                        else {
+                            0
+                        };
+                        let vertex_allocation = self.vertex_alloc.allocate(AllocationDemand::new(apilod.vertex_data.len(), apilod.vertex_data.len() + added));
                         self.vertex_alloc.update_allocation(
                             vertex_allocation,
                             apilod.vertex_data.iter().map(|vertex| {TriangleVertex {position:[vertex.position.x, vertex.position.z, -vertex.position.y], uv:textures.get_uv_for(apilod.textures[vertex.texture_id as usize].clone(), vertex.u, vertex.v)}}).collect()
                         );
 
-                        let index_allocation = self.index_alloc.allocate(AllocationDemand::new(apilod.index_data.len(), apilod.index_data.len() + 300));
+                        let index_allocation = self.index_alloc.allocate(AllocationDemand::new(apilod.index_data.len(), apilod.index_data.len() + added * 3));
                         self.index_alloc.update_allocation(
                             index_allocation,
                             apilod.index_data.iter().map(|index| {index.vertex}).collect()
@@ -88,7 +94,6 @@ impl Meshes {
                 }
                 else {
                     let id = self.meshes.len();
-                    let mut first_instances_len = first_instances.len();
                     let instances = Instances::new(first_instances, self.allocator.clone(), &mut self.instance_alloc);
                     let id_generator = instances.id_generator.clone();
                     self.meshes.push(Mesh { name:name.clone(), lods:meshlods, instances, chosen_lod: None, show });
