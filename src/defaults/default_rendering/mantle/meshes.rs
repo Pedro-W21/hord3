@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, sync::{Arc, atomic::{AtomicU64, AtomicUsize}, mpmc::{Receiver, Sender, channel}}};
+use std::{collections::HashMap, f32::consts::PI, sync::{Arc, atomic::{AtomicU64, AtomicUsize}, mpmc::{Receiver, Sender, channel}}};
 
 use to_from_bytes_derive::{FromBytes, ToBytes};
 use vulkano::{buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, command_buffer::CopyBufferInfo, format, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter}, pipeline::graphics::vertex_input::Vertex};
@@ -9,6 +9,7 @@ use crate::{defaults::default_rendering::mantle::{api::{CPUInstanceData, MantleE
 pub type MemoryAllocator = Arc<vulkano::memory::allocator::GenericMemoryAllocator<vulkano::memory::allocator::FreeListAllocator>>;
 pub struct Meshes {
     pub meshes:Vec<Mesh>,
+    pub mesh_map:HashMap<String, usize>,
     pub mesh_creation_sender:Sender<MantleResponse>,
     pub allocator:MemoryAllocator,
     pub camera:Camera,
@@ -157,6 +158,7 @@ impl Meshes {
                     let instances = Instances::new(first_instances, self.allocator.clone());
                     let id_generator = instances.id_generator.clone();
                     self.meshes.push(Mesh { name:name.clone(), lods:meshlods, instances, chosen_lod: None, show });
+                    self.mesh_map.insert(name.clone(), id);
                     self.mesh_creation_sender.send(MantleResponse::MeshCreated { id_generator:id_generator.clone(), direct_id:id, name:name.clone() }).unwrap();
                     event.response.send(MantleResponse::MeshCreated { id_generator, direct_id:id, name });
                 }
@@ -199,7 +201,7 @@ impl Meshes {
     pub fn get_mesh_mut(&mut self, id:MeshID) -> Option<&mut Mesh> {
         match id {
             MeshID::DirectID(index) => self.meshes.get_mut(index),
-            MeshID::Name(name) => self.meshes.iter_mut().find(|mesh| {mesh.name == name})
+            MeshID::Name(name) => self.mesh_map.get(&name).and_then(|idx| {Some(self.meshes.get_mut(*idx).unwrap())})
         }
     }
     pub fn get_new_camdata(&self, aspect_ratio:f32) -> CameraData {

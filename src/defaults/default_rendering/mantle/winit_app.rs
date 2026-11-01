@@ -3,7 +3,7 @@
 // This is a simple, modified version of the `triangle.rs` example that demonstrates how we can use
 // the "instancing" technique with vulkano to draw many instances of the triangle.
 
-use std::{error::Error, sync::{Arc, RwLock, atomic::{AtomicUsize, Ordering}, mpmc::{Receiver, Sender, channel}}, time::Instant};
+use std::{collections::HashMap, error::Error, sync::{Arc, RwLock, atomic::{AtomicUsize, Ordering}, mpmc::{Receiver, Sender, channel}}, time::Instant};
 use foldhash::HashSet;
 use smallvec::smallvec;
 use vulkano::{
@@ -138,7 +138,7 @@ impl App {
                 device,
                 queue,
                 command_buffer_allocator,
-                meshes:Arc::new(RwLock::new(Meshes { meshes: vec![], allocator:memory_allocator.clone(), mesh_creation_sender:sender2, camera:Camera::empty() })),
+                meshes:Arc::new(RwLock::new(Meshes { meshes: vec![], allocator:memory_allocator.clone(), mesh_creation_sender:sender2, camera:Camera::empty(), mesh_map:HashMap::with_capacity(4096) })),
                 textures:Arc::new(RwLock::new(TextureAtlas::new(4096, 4096, 1, memory_allocator.clone()))),
                 rcx: None,
                 events:receiver,
