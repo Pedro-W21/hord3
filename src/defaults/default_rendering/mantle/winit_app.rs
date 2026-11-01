@@ -27,7 +27,7 @@ use crate::{defaults::default_rendering::mantle::{api::{MantleEvent, MantleHandl
 
 fn main() -> Result<(), impl Error> {
     let event_loop = EventLoop::new().unwrap();
-    let (mut app,handler) = App::new(&event_loop);
+    let (mut app,handler) = App::new(&event_loop, 1000, 1000, 1000);
 
     event_loop.run_app(&mut app)
 }
@@ -58,7 +58,7 @@ pub struct RenderContext {
 }
 
 impl App {
-    pub fn new(event_loop: &EventLoop<()>) -> (Self, MantleHandler) {
+    pub fn new(event_loop: &EventLoop<()>, vertex_capacity:usize, index_capacity:usize, instance_capacity:usize) -> (Self, MantleHandler) {
         let library = unsafe { VulkanLibrary::new() }.unwrap();
         let required_extensions = Surface::required_extensions(event_loop).unwrap();
         let instance = Instance::new(
@@ -144,9 +144,9 @@ impl App {
                     mesh_creation_sender:sender2,
                     camera:Camera::empty(),
                     mesh_map:HashMap::with_capacity(4096),
-                    vertex_alloc:BufferAllocator::new(10_000_000, memory_allocator.clone(), BufferUsage::VERTEX_BUFFER),
-                    instance_alloc:BufferAllocator::new(10_000_000, memory_allocator.clone(), BufferUsage::VERTEX_BUFFER),
-                    index_alloc:BufferAllocator::new(10_000_000, memory_allocator.clone(), BufferUsage::INDEX_BUFFER)
+                    vertex_alloc:BufferAllocator::new(vertex_capacity, memory_allocator.clone(), BufferUsage::VERTEX_BUFFER),
+                    instance_alloc:BufferAllocator::new(instance_capacity, memory_allocator.clone(), BufferUsage::VERTEX_BUFFER),
+                    index_alloc:BufferAllocator::new(index_capacity, memory_allocator.clone(), BufferUsage::INDEX_BUFFER)
                  })),
                 textures:Arc::new(RwLock::new(TextureAtlas::new(4096, 4096, 1, memory_allocator.clone()))),
                 rcx: None,
