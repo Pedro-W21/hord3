@@ -623,24 +623,27 @@ impl ApplicationHandler for App {
                             None
                         }
                     }).collect();
-                    let indirect_buffer = Buffer::from_iter(
-                        meshes_read.allocator.clone(),
-                        BufferCreateInfo {
-                            usage: BufferUsage::INDIRECT_BUFFER,
-                            ..Default::default()
-                        },
-                        AllocationCreateInfo {
-                            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                                | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                            ..Default::default()
-                        },
-                        iter,
-                    ).expect("Couldn't allocate global buffer");
-                    unsafe {
-                        builder.draw_indexed_indirect(
-                            indirect_buffer
-                        ).unwrap();
+                    if iter.len() > 0 {
+                        let indirect_buffer = Buffer::from_iter(
+                            meshes_read.allocator.clone(),
+                            BufferCreateInfo {
+                                usage: BufferUsage::INDIRECT_BUFFER,
+                                ..Default::default()
+                            },
+                            AllocationCreateInfo {
+                                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                                ..Default::default()
+                            },
+                            iter,
+                        ).expect("Couldn't allocate global buffer");
+                        unsafe {
+                            builder.draw_indexed_indirect(
+                                indirect_buffer
+                            ).unwrap();
+                        }
                     }
+                    
                 }
                 
 
