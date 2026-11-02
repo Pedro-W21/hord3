@@ -104,10 +104,10 @@ impl<T:BufferContents + Copy> BufferAllocator<T> {
             self.allocate(new_demand)
         }
     }
-    pub fn update_allocation(&mut self, alloc:Allocation, new_data:Vec<T>) {
+    pub fn update_allocation(&mut self, alloc:Allocation, new_data:&Vec<T>) {
         if alloc.max_length > 0 {
             let mut writer = self.buffer.write().unwrap();
-            writer.get_mut(alloc.start..(alloc.start + alloc.length)).unwrap().copy_from_slice(&new_data);
+            writer.get_mut(alloc.start..(alloc.start + alloc.length)).unwrap().copy_from_slice(new_data);
         }
     }
 }

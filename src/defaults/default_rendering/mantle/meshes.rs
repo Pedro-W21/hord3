@@ -76,13 +76,13 @@ impl Meshes {
                         let vertex_allocation = self.vertex_alloc.allocate(AllocationDemand::new(apilod.vertex_data.len(), apilod.vertex_data.len() + added));
                         self.vertex_alloc.update_allocation(
                             vertex_allocation,
-                            apilod.vertex_data.iter().map(|vertex| {TriangleVertex {position:[vertex.position.x, vertex.position.z, -vertex.position.y], uv:textures.get_uv_for(apilod.textures[vertex.texture_id as usize].clone(), vertex.u, vertex.v)}}).collect()
+                            &apilod.vertex_data.iter().map(|vertex| {TriangleVertex {position:[vertex.position.x, vertex.position.z, -vertex.position.y], uv:textures.get_uv_for(apilod.textures[vertex.texture_id as usize].clone(), vertex.u, vertex.v)}}).collect()
                         );
 
                         let index_allocation = self.index_alloc.allocate(AllocationDemand::new(apilod.index_data.len(), apilod.index_data.len() + added * 3));
                         self.index_alloc.update_allocation(
                             index_allocation,
-                            apilod.index_data.iter().map(|index| {index.vertex}).collect()
+                            &apilod.index_data.iter().map(|index| {index.vertex}).collect()
                         );
                         MeshLOD { vertex_allocation, index_allocation }
                 }).collect();
@@ -127,7 +127,7 @@ impl Meshes {
                     };
                     mesh.instances.allocation = self.instance_alloc.extend_allocation(mesh.instances.allocation, AllocationDemand::new(mesh.instances.local_instance_buffer.len(), new_max_length));
                 }
-                self.instance_alloc.update_allocation(mesh.instances.allocation, mesh.instances.local_instance_buffer.clone());
+                self.instance_alloc.update_allocation(mesh.instances.allocation, &mesh.instances.local_instance_buffer);
                 /*let instance_buffer = Buffer::from_iter(
                     self.allocator.clone(),
                     BufferCreateInfo {
@@ -196,7 +196,7 @@ impl Instances {
             data.push(InstanceData { world_position: [0.0, 0.0, 0.0], scale: 0.0 });
         }
         let allocation = instance_alloc.allocate(AllocationDemand::simple(highest_id));
-        instance_alloc.update_allocation(allocation, data.clone());
+        instance_alloc.update_allocation(allocation, &data);
         Self {
             allocation,
             local_instance_buffer:data,
