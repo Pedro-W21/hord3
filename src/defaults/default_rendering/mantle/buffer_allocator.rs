@@ -48,8 +48,8 @@ impl<T:BufferContents + Copy> BufferAllocator<T> {
                 if av.length != alloc.max_length {
                     av.start += alloc.max_length;
                     av.length -= alloc.max_length;
+                    self.insert_available(av);
                 }
-                self.insert_available(av);
                 alloc
             }
             None => panic!("No allocation possibility found !")
