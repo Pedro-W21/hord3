@@ -71,6 +71,7 @@ impl<T:BufferContents + Copy> BufferAllocator<T> {
         if alloc.max_length > 0 {
             let mut freed = AvailableMemory {start:alloc.start, length:alloc.max_length};
             let inserted = self.insert_available(freed);
+            self.defrag_loop(inserted);
         }
         // stuff to fuse available memory spaces, TODO later
         /*let mut fuse_with_prev = None;
@@ -93,6 +94,33 @@ impl<T:BufferContents + Copy> BufferAllocator<T> {
             freed.start = start;
             
         }*/
+    }
+    /// result indicates if anything changed (must do another pass just in case)
+    fn defrag_pass(&mut self, target:usize) -> Option<usize> {
+        let target_av = self.available[target];
+        for i in 0..self.available.len() {
+            if i != target {
+                let av = self.available[i];
+                if av.start + av.length == target_av.start || target_av.start + target_av.length == av.start {
+                    let new_av = AvailableMemory {start:av.start.min(target_av.start), length:av.length + target_av.length};
+                    if i < target {
+                        self.available.remove(target);
+                        self.available.remove(i);
+                    }
+                    else {
+                        self.available.remove(i);
+                        self.available.remove(target);
+                    }
+                    return Some(self.insert_available(new_av))
+                }
+            }
+        }
+        None
+    }
+    pub fn defrag_loop(&mut self, mut target:usize) {
+        while let Some(new_target) = self.defrag_pass(target) {
+            target = new_target;
+        }
     }
     pub fn extend_allocation(&mut self, mut prev:Allocation, new_demand:AllocationDemand) -> Allocation {
         if new_demand.start_length <= prev.max_length && new_demand.max_length <= prev.max_length {
