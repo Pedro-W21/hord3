@@ -31,7 +31,7 @@ impl Meshes {
                     if mesh.instances.local_instance_buffer.len() < chosen_id {
                         let mut data = mesh.instances.local_instance_buffer.clone();
                         for i in (data.len().max(1) - 1)..chosen_id {
-                            data.push(InstanceData { world_position: new_data.position.coords_to_array(), scale: 0.0});
+                            data.push(InstanceData { world_position: [new_data.position.x, new_data.position.z, -new_data.position.y], scale: 0.0});
                         }
                         data.last_mut().unwrap().scale = 1.0;
 
@@ -39,7 +39,7 @@ impl Meshes {
                         mesh.instances.changed_in_frame = true;
                     }
                     else {
-                        mesh.instances.local_instance_buffer.get_mut(chosen_id).and_then(|data| {*data = InstanceData { world_position: new_data.position.coords_to_array(), scale: 1.0}; Some(1_u8)});
+                        mesh.instances.local_instance_buffer.get_mut(chosen_id).and_then(|data| {*data = InstanceData { world_position: [new_data.position.x, new_data.position.z, -new_data.position.y], scale: 1.0}; Some(1_u8)});
                         mesh.instances.changed_in_frame = true;
                     }    
                     
