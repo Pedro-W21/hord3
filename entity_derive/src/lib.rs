@@ -261,7 +261,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                         let mut all_events_write = self.all_events.write().unwrap();
                         #(
                             {
-                                while let Ok(event) = self.tunnels_in.#tunnel_in_can_sync_components.recv_timeout(std::time::Duration::from_nanos(10)) {
+                                while let Ok(event) = self.tunnels_in.#tunnel_in_can_sync_components.try_recv() {
                                     if event.must_be_synced.is_server() {
                                         to_sync_write.push(#sync_event_enum_id::#can_sync_components(event.event.clone()));
                                     }
@@ -272,13 +272,13 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                         );* ;
                         #(
                             {
-                                while let Ok(event) = self.tunnels_in.#tunnel_in_no_sync_components.recv_timeout(std::time::Duration::from_nanos(10)) {
+                                while let Ok(event) = self.tunnels_in.#tunnel_in_no_sync_components.try_recv() {
                                     <<#no_sync_types as Component<ID>>::CE as ComponentEvent<#no_sync_types, ID>>::apply_to_component(event.event.clone(), &mut write_handler.#no_sync_components);
                                 }
                             }
                         );* ;
                         {
-                            while let Ok(ent) = self.tunnels_in.new_ents.recv_timeout(std::time::Duration::from_nanos(10)) {
+                            while let Ok(ent) = self.tunnels_in.new_ents.try_recv() {
                                 let new_id = write_handler.new_ent(ent.clone());
                                 all_events_write.push(#sync_event_enum_id::NewEnt{made_by: ent.created_by.clone(), ent:ent.clone(), new_id});
                                 if ent.must_be_synced.is_server() {
@@ -291,7 +291,7 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                     else {
                         #(
                             {
-                                while let Ok(event) = self.tunnels_in.#tunnel_in_can_sync_components.recv_timeout(std::time::Duration::from_nanos(10)) {
+                                while let Ok(event) = self.tunnels_in.#tunnel_in_can_sync_components.try_recv() {
                                     if event.must_be_synced.is_client() {
                                         to_sync_write.push(#sync_event_enum_id::#can_sync_components(event.event.clone()));
                                     }
@@ -301,13 +301,13 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                         );* ;
                         #(
                             {
-                                while let Ok(event) = self.tunnels_in.#tunnel_in_no_sync_components.recv_timeout(std::time::Duration::from_nanos(10)) {
+                                while let Ok(event) = self.tunnels_in.#tunnel_in_no_sync_components.try_recv() {
                                     <<#no_sync_types as Component<ID>>::CE as ComponentEvent<#no_sync_types, ID>>::apply_to_component(event.event.clone(), &mut write_handler.#no_sync_components);
                                 }
                             }
                         );* ;
                         {
-                            while let Ok(ent) = self.tunnels_in.new_ents.recv_timeout(std::time::Duration::from_nanos(10)) {
+                            while let Ok(ent) = self.tunnels_in.new_ents.try_recv() {
                                 if ent.must_be_synced.is_client() {
                                     let new_id = write_handler.new_ent(ent.clone());
                                     to_sync_write.push(#sync_event_enum_id::NewEnt{made_by: ent.created_by.clone(), ent, new_id});
@@ -408,13 +408,13 @@ fn get_entity_vec(ast:&DeriveInput, data:&DataStruct, fields:&FieldsNamed) -> (T
                     let mut write_handler = self.get_write();
                     #(
                         {
-                            while let Ok(event) = self.tunnels_in.#tunnel_in_components.recv_timeout(std::time::Duration::from_nanos(10)) {
+                            while let Ok(event) = self.tunnels_in.#tunnel_in_components.try_recv() {
                                 <<#arw_types as Component<ID>>::CE as ComponentEvent<#arw_types, ID>>::apply_to_component(event, &mut write_handler.#arw_components);
                             }
                         }
                     );* ;
                     {
-                        while let Ok(ent) = self.tunnels_in.new_ents.recv_timeout(std::time::Duration::from_nanos(10)) {
+                        while let Ok(ent) = self.tunnels_in.new_ents.try_recv() {
                             write_handler.new_ent(ent);
                         }
                     }
