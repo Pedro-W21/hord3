@@ -23,7 +23,7 @@ impl Meshes {
         match event.update {
             MantleRequest::SetGlobalLOD { mesh_id, lod } => {
                 self.get_mesh_mut(mesh_id).and_then(|mesh| {mesh.chosen_lod = lod; Some(1_u8)});
-                event.response.send(MantleResponse::Success);
+                event.response.and_then(|resp| {resp.send(MantleResponse::Success);Some(1_u8)});
             },
             MantleRequest::CreateInstance { mesh_id, chosen_id, new_data } => {
                 let allocator = self.allocator.clone();
@@ -46,7 +46,7 @@ impl Meshes {
 
                     Some(1_u8)
                 });
-                event.response.send(MantleResponse::Success);
+                event.response.and_then(|resp| {resp.send(MantleResponse::Success);Some(1_u8)});
             },
             MantleRequest::UpdateInstance { mesh_id, instance, new_data } => {
                 self.get_mesh_mut(mesh_id).and_then(|mesh| {
@@ -54,7 +54,7 @@ impl Meshes {
                     mesh.instances.local_instance_buffer.get_mut(instance).and_then(|data| {*data = InstanceData { world_position: [new_data.position.x, new_data.position.z, -new_data.position.y], scale: 1.0}; Some(1_u8)});
                     Some(1_u8)
                 });
-                event.response.send(MantleResponse::Success);
+                event.response.and_then(|resp| {resp.send(MantleResponse::Success);Some(1_u8)});
             },
             MantleRequest::RemoveInstance { mesh_id, removed_id } => (),
             MantleRequest::CreateOrUpdateMesh { name, lods, first_instances } => {
@@ -90,7 +90,7 @@ impl Meshes {
                     
                     mesh.lods = meshlods;
                     mesh.show = show;
-                    event.response.send(MantleResponse::Success);
+                    event.response.and_then(|resp| {resp.send(MantleResponse::Success);Some(1_u8)});
                 }
                 else {
                     let id = self.meshes.len();
@@ -99,18 +99,18 @@ impl Meshes {
                     self.meshes.push(Mesh { name:name.clone(), lods:meshlods, instances, chosen_lod: None, show });
                     self.mesh_map.insert(name.clone(), id);
                     self.mesh_creation_sender.send(MantleResponse::MeshCreated { id_generator:id_generator.clone(), direct_id:id, name:name.clone() }).unwrap();
-                    event.response.send(MantleResponse::MeshCreated { id_generator, direct_id:id, name });
+                    event.response.and_then(|resp| {resp.send(MantleResponse::MeshCreated { id_generator, direct_id:id, name });Some(1_u8)});
                 }
             },
             MantleRequest::UpdateCamera {
                 new_cam
             } => {
                 self.camera = new_cam;
-                event.response.send(MantleResponse::Success);
+                event.response.and_then(|resp| {resp.send(MantleResponse::Success);Some(1_u8)});
             },
             MantleRequest::CreateOrUpdateTexture { name, texture_data, width, height } => {
                 textures.add_or_update_texture(name, texture_data, width, height, builder);
-                event.response.send(MantleResponse::Success);
+                event.response.and_then(|resp| {resp.send(MantleResponse::Success);Some(1_u8)});
             }
         }
     }

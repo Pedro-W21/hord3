@@ -109,7 +109,7 @@ pub enum MantleRequest {
 }
 pub struct MantleEvent {
     pub update:MantleRequest,
-    pub response:Sender<MantleResponse>
+    pub response:Option<Sender<MantleResponse>>
 }
 
 pub enum MantleResponse {
@@ -160,13 +160,16 @@ impl MantleHandler {
     pub fn get_outside_events(&self) -> Receiver<WindowingEvent> {
         self.outside_events.clone()
     }
-    pub fn set_or_add_mesh(&self, name:String, lods:Vec<ApiLod>, first_instances:Vec<CPUInstanceData>) -> Receiver<MantleResponse> {
-        let (s,r) = channel();
+    pub fn send_event(&self, req:MantleRequest) -> Receiver<MantleResponse> {
+        let (s, r) = channel();
+        self.event_sender.send(MantleEvent { update: req, response: Some(s) });
+        r
+    }
+    pub fn set_or_add_mesh_no_rep(&self, name:String, lods:Vec<ApiLod>, first_instances:Vec<CPUInstanceData>) {
         self.event_sender.send(MantleEvent {
             update: MantleRequest::CreateOrUpdateMesh { name, lods, first_instances },
-            response: s
+            response: None
         }).unwrap();
-        r
     }
     pub fn get_mesh(&self, mesh_id:MeshID) -> Option<CPUMeshData> {
         match mesh_id {
@@ -174,54 +177,45 @@ impl MantleHandler {
             MeshID::Name(name) => self.mesh_datas.read().unwrap().iter().find(|a| {a.name == name}).cloned(),
         }
     }
-    pub fn add_instance(&self, mesh_id:MeshID, new_data:CPUInstanceData) -> (usize, Receiver<MantleResponse>) {
-        let (s,r) = channel();
+    pub fn add_instance_no_rep(&self, mesh_id:MeshID, new_data:CPUInstanceData) -> usize {
         let mesh_data = self.get_mesh(mesh_id.clone()).unwrap();
         let id = mesh_data.instance_id_generator.get_next_id();
         self.event_sender.send(MantleEvent {
             update: MantleRequest::CreateInstance { mesh_id, chosen_id: id, new_data },
-            response: s
+            response: None
         }).unwrap();
-        (id, r)
+        id
     }
-    pub fn free_instance(&self, mesh_id:MeshID, instance:usize) -> Receiver<MantleResponse> {
-        let (s,r) = channel();
+    pub fn free_instance_no_rep(&self, mesh_id:MeshID, instance:usize) {
         let mesh_data = self.get_mesh(mesh_id.clone()).unwrap();
         mesh_data.instance_id_generator.free_id(instance);
         self.event_sender.send(MantleEvent {
             update: MantleRequest::RemoveInstance { mesh_id, removed_id: instance },
-            response: s
+            response: None
         }).unwrap();
-        r
     }
-    pub fn update_instance(&self, mesh_id:MeshID, instance:usize, new_data:CPUInstanceData) -> Receiver<MantleResponse> {
+    pub fn update_instance_no_rep(&self, mesh_id:MeshID, instance:usize, new_data:CPUInstanceData) {
 
-        let (s,r) = channel();
         self.event_sender.send(MantleEvent {
             update: MantleRequest::UpdateInstance { mesh_id, instance, new_data },
-            response: s
+            response: None
         }).unwrap();
-        r
     }
-    pub fn update_camera(&self, new_cam:Camera) -> Receiver<MantleResponse> {
+    pub fn update_camera_no_rep(&self, new_cam:Camera) {
 
-        let (s,r) = channel();
         self.event_sender.send(MantleEvent {
             update: MantleRequest::UpdateCamera { new_cam },
-            response: s
+            response: None
         }).unwrap();
-        r
     }
-    pub fn create_or_update_texture(&self, texture_path:&str, texture_name:String) -> Receiver<MantleResponse> {
+    pub fn create_or_update_texture_no_rep(&self, texture_path:&str, texture_name:String) {
         let text = load_single_texture(texture_path).expect("Texture couldn't be loaded");
         let req = buffer_to_request(texture_name.clone(), text);
 
-        let (s,r) = channel();
         self.event_sender.send(MantleEvent {
             update: req,
-            response: s
+            response: None
         }).unwrap();
-        r
     }
 }
 
