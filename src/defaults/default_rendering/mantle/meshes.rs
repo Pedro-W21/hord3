@@ -251,7 +251,7 @@ pub struct InstanceData {
 
 impl InstanceData {
     pub fn new(pos:Vec3Df, orient:Orientation, scale:f32) -> Self {
-        let world = Mat4::from_rotation_translation(Quaternion::new_from_euler(-orient.pitch, orient.yaw, orient.roll), Vec3Df::new(pos.x, pos.z, -pos.y)).to_cols_array_2d();
+        let world = Mat4::from_rotation_translation(Quaternion::new_from_euler_yzx(-orient.pitch, orient.yaw, orient.roll), Vec3Df::new(pos.x, pos.z, -pos.y)).to_cols_array_2d();
         Self { world, scale }
     }
 }

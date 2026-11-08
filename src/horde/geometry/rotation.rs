@@ -42,6 +42,28 @@ impl Quaternion {
 
         q
     }
+    pub fn new_from_euler_yzx(yaw: f32, pitch: f32, roll: f32) -> Quaternion {
+        let cy = (yaw * 0.5).cos();
+        let cz = (pitch * 0.5).cos();
+        let cx = (roll * 0.5).cos();
+
+        let sy = (yaw * 0.5).sin();
+        let sz = (pitch * 0.5).sin();
+        let sx = (roll * 0.5).sin();
+
+        let mut q = Quaternion {
+            w: 0.0,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        q.w = cy * cz * cx + sy * sz * sx;
+        q.x = cy * cz * sx + sy * sz * cx;
+        q.y = sy * cz * cx + cy * sz * sx;
+        q.z = cy * sz * cx - sy * cz * sx;
+
+        q
+    }
     #[inline(always)]
     pub fn rotate(&self, cible: Vec3Df) -> Vec3Df {
         Vec3Df::new(
