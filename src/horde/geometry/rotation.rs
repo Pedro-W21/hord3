@@ -57,7 +57,7 @@ impl Quaternion {
             y: 0.0,
             z: 0.0,
         };
-        q.w = cy * cz * cx + sy * sz * sx;
+        q.w = cy * cz * cx - sy * sz * sx;
         q.x = cy * cz * sx + sy * sz * cx;
         q.y = sy * cz * cx + cy * sz * sx;
         q.z = cy * sz * cx - sy * cz * sx;
