@@ -244,13 +244,7 @@ pub struct TriangleVertex {
 #[repr(C)]
 pub struct InstanceData {
     #[format(R32G32B32A32_SFLOAT)]
-    pub world_0: [f32 ; 4],
-    #[format(R32G32B32A32_SFLOAT)]
-    pub world_1: [f32 ; 4],
-    #[format(R32G32B32A32_SFLOAT)]
-    pub world_2: [f32 ; 4],
-    #[format(R32G32B32A32_SFLOAT)]
-    pub world_3: [f32 ; 4],
+    pub world: [[f32 ; 4] ; 4],
     #[format(R32_SFLOAT)]
     pub scale: f32,
 }
@@ -258,7 +252,7 @@ pub struct InstanceData {
 impl InstanceData {
     pub fn new(pos:Vec3Df, orient:Orientation, scale:f32) -> Self {
         let world = Mat4::from_rotation_translation(Quaternion::new_from_euler(orient.yaw, orient.pitch, orient.roll), Vec3Df::new(pos.x, pos.z, -pos.y)).to_cols_array_2d();
-        Self { world_0: world[0], world_1: world[1], world_2: world[2], world_3: world[3], scale }
+        Self { world, scale }
     }
 }
 
