@@ -10,10 +10,10 @@ use super::vec3d::Vec3Df;
 /// it is a representation of a Quaternion, which can be used to apply rotations to Vec3D structs directly. However, it computes the 3D rotation matrix for each rotation done this way, so it is recommended to use Orientation and Rotation instead for better performance as you rarely need to rotate only 1 Vec3D at a time
 #[derive(Clone, Copy)]
 pub struct Quaternion {
-    w: f32,
-    x: f32,
-    y: f32,
-    z: f32,
+    pub w: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 impl Quaternion {

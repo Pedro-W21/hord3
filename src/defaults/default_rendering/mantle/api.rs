@@ -7,7 +7,7 @@ use crate::{defaults::default_rendering::mantle::{meshes::{IndexData, InstanceID
 pub struct CPUInstanceData {
     pub position:Vec3Df,
     pub speed:Vec3Df,
-    pub rotation:Rotation,
+    pub rotation:Orientation,
 }
 
 #[derive(Clone)]

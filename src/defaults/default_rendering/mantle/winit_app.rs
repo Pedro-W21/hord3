@@ -241,8 +241,8 @@ impl ApplicationHandler for App {
                     layout(location = 1) in vec2 uv;
 
                     // The per-instance data.
-                    layout(location = 2) in vec3 world_position;
-                    layout(location = 3) in float scale;
+                    layout(location = 2) in mat4 world_matrix;
+                    layout(location = 6) in float scale;
 
                     // Camera Data (Uniform Buffer)
                     layout(set = 0, binding = 0) uniform CameraBuffer {
@@ -254,9 +254,9 @@ impl ApplicationHandler for App {
 
                     void main() {
                         // Apply the scale and offset for the instance.
-                        vec3 worldspace = position * scale + world_position;
+                        vec4 worldspace = world_matrix * vec4(position * scale, 1.0);
 
-                        vec4 cameraspace = camera.view * vec4(worldspace, 1.0);
+                        vec4 cameraspace = camera.view * worldspace;
 
                         gl_Position = camera.projection * cameraspace;
                         v_uv = uv;

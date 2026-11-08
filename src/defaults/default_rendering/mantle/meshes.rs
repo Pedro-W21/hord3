@@ -3,7 +3,7 @@ use std::{collections::HashMap, f32::consts::PI, sync::{Arc, atomic::{AtomicU64,
 use to_from_bytes_derive::{FromBytes, ToBytes};
 use vulkano::{buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, command_buffer::CopyBufferInfo, format, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter}, pipeline::graphics::vertex_input::Vertex};
 
-use crate::{defaults::default_rendering::mantle::{api::{self, CPUInstanceData, MantleEvent, MantleRequest, MantleResponse}, buffer_allocator::{Allocation, AllocationDemand, BufferAllocator}, textures::TextureAtlas}, horde::{geometry::{mat4::Mat4, rotation::Rotation, vec3d::Vec3Df}, rendering::camera::Camera}};
+use crate::{defaults::default_rendering::mantle::{api::{self, CPUInstanceData, MantleEvent, MantleRequest, MantleResponse}, buffer_allocator::{Allocation, AllocationDemand, BufferAllocator}, textures::TextureAtlas}, horde::{geometry::{mat4::Mat4, rotation::{Orientation, Quaternion, Rotation}, vec3d::Vec3Df}, rendering::camera::Camera}};
 
 
 pub type MemoryAllocator = Arc<vulkano::memory::allocator::GenericMemoryAllocator<vulkano::memory::allocator::FreeListAllocator>>;
@@ -31,7 +31,7 @@ impl Meshes {
                     if mesh.instances.local_instance_buffer.len() < chosen_id {
                         let mut data = mesh.instances.local_instance_buffer.clone();
                         for i in (data.len().max(1) - 1)..chosen_id {
-                            data.push(InstanceData { world_position: [new_data.position.x, new_data.position.z, -new_data.position.y], scale: 0.0});
+                            data.push(InstanceData::new(new_data.position, new_data.rotation, 0.0));
                         }
                         data.last_mut().unwrap().scale = 1.0;
 
@@ -39,7 +39,7 @@ impl Meshes {
                         mesh.instances.changed_in_frame = true;
                     }
                     else {
-                        mesh.instances.local_instance_buffer.get_mut(chosen_id).and_then(|data| {*data = InstanceData { world_position: [new_data.position.x, new_data.position.z, -new_data.position.y], scale: 1.0}; Some(1_u8)});
+                        mesh.instances.local_instance_buffer.get_mut(chosen_id).and_then(|data| {*data = InstanceData::new(new_data.position, new_data.rotation, 1.0); Some(1_u8)});
                         mesh.instances.changed_in_frame = true;
                     }    
                     
@@ -51,7 +51,7 @@ impl Meshes {
             MantleRequest::UpdateInstance { mesh_id, instance, new_data } => {
                 self.get_mesh_mut(mesh_id).and_then(|mesh| {
                     mesh.instances.changed_in_frame = true;
-                    mesh.instances.local_instance_buffer.get_mut(instance).and_then(|data| {*data = InstanceData { world_position: [new_data.position.x, new_data.position.z, -new_data.position.y], scale: 1.0}; Some(1_u8)});
+                    mesh.instances.local_instance_buffer.get_mut(instance).and_then(|data| {*data = InstanceData::new(new_data.position, new_data.rotation, 1.0); Some(1_u8)});
                     Some(1_u8)
                 });
                 event.response.and_then(|resp| {resp.send(MantleResponse::Success);Some(1_u8)});
@@ -190,10 +190,10 @@ impl Instances {
         let mut data = Vec::with_capacity(first_instances.len());
         let highest_id = first_instances.len();
         for instance in first_instances {
-            data.push(InstanceData { world_position: [instance.position.x, instance.position.z, -instance.position.y], scale: 1.0});
+            data.push(InstanceData::new(instance.position, instance.rotation, 1.0));
         }
         if data.len() == 0 {
-            data.push(InstanceData { world_position: [0.0, 0.0, 0.0], scale: 0.0 });
+            data.push(InstanceData::new(Vec3Df::zero(), Orientation::zero(), 1.0));
         }
         let allocation = instance_alloc.allocate(AllocationDemand::simple(highest_id));
         instance_alloc.update_allocation(allocation, &data);
@@ -243,10 +243,23 @@ pub struct TriangleVertex {
 #[derive(BufferContents, Vertex, Clone, Copy)]
 #[repr(C)]
 pub struct InstanceData {
-    #[format(R32G32B32_SFLOAT)]
-    pub world_position: [f32; 3],
+    #[format(R32G32B32A32_SFLOAT)]
+    pub world_0: [f32 ; 4],
+    #[format(R32G32B32A32_SFLOAT)]
+    pub world_1: [f32 ; 4],
+    #[format(R32G32B32A32_SFLOAT)]
+    pub world_2: [f32 ; 4],
+    #[format(R32G32B32A32_SFLOAT)]
+    pub world_3: [f32 ; 4],
     #[format(R32_SFLOAT)]
     pub scale: f32,
+}
+
+impl InstanceData {
+    pub fn new(pos:Vec3Df, orient:Orientation, scale:f32) -> Self {
+        let world = Mat4::from_rotation_translation(Quaternion::new_from_euler(orient.yaw, orient.pitch, orient.roll), Vec3Df::new(pos.x, pos.z, -pos.y)).to_cols_array_2d();
+        Self { world_0: world[0], world_1: world[1], world_2: world[2], world_3: world[3], scale }
+    }
 }
 
 pub type TextureID = usize;
